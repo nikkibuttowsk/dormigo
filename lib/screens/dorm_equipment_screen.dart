@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
+
 import '../providers/pantry_provider.dart';
 import '../utils/theme.dart';
 
@@ -37,9 +38,9 @@ class _DormEquipmentScreenState extends State<DormEquipmentScreen> {
       if (mounted) Navigator.pop(context);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not save equipment: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not save equipment: $e')));
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -127,7 +128,7 @@ class _DormEquipmentScreenState extends State<DormEquipmentScreen> {
                         duration: const Duration(milliseconds: 180),
                         decoration: BoxDecoration(
                           color: isSelected
-                              ? AppColors.paleGreen.withOpacity(0.55)
+                              ? AppColors.paleGreen.withValues(alpha: 0.55)
                               : Colors.white,
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
@@ -154,7 +155,9 @@ class _DormEquipmentScreenState extends State<DormEquipmentScreen> {
                                   border: Border.all(
                                     color: isSelected
                                         ? AppColors.green
-                                        : AppColors.textMuted.withOpacity(0.35),
+                                        : AppColors.textMuted.withValues(
+                                            alpha: 0.35,
+                                          ),
                                     width: 1.5,
                                   ),
                                 ),
@@ -205,11 +208,7 @@ class _DormEquipmentScreenState extends State<DormEquipmentScreen> {
               // Footer Status + Apply Button
               Row(
                 children: [
-                  const Icon(
-                    Icons.check,
-                    size: 16,
-                    color: AppColors.green,
-                  ),
+                  const Icon(Icons.check, size: 16, color: AppColors.green),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(

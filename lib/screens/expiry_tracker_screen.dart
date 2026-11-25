@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
+
 import '../models/pantry_item.dart';
 import '../providers/pantry_provider.dart';
 import '../utils/theme.dart';
@@ -17,8 +18,18 @@ class _ExpiryTrackerScreenState extends State<ExpiryTrackerScreen> {
   String _formatShortDate(DateTime? date) {
     if (date == null) return 'No expiry';
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return 'Exp: ${months[date.month - 1]} ${date.day}';
   }
@@ -34,8 +45,8 @@ class _ExpiryTrackerScreenState extends State<ExpiryTrackerScreen> {
     final displayedList = _selectedFilter == 0
         ? thisWeek
         : _selectedFilter == 1
-            ? later
-            : expired;
+        ? later
+        : expired;
 
     return Scaffold(
       backgroundColor: AppColors.cream,
@@ -133,7 +144,7 @@ class _ExpiryTrackerScreenState extends State<ExpiryTrackerScreen> {
                       width: 60,
                       height: 60,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.65),
+                        color: Colors.white.withValues(alpha: 0.65),
                         shape: BoxShape.circle,
                       ),
                       alignment: Alignment.center,
@@ -177,7 +188,6 @@ class _ExpiryTrackerScreenState extends State<ExpiryTrackerScreen> {
                             height: 36,
                             child: ElevatedButton(
                               onPressed: () {
-                                // TODO: Navigate to Recipes filtered by urgent.name
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.alertText,
@@ -207,8 +217,8 @@ class _ExpiryTrackerScreenState extends State<ExpiryTrackerScreen> {
               _selectedFilter == 0
                   ? 'Soon to Expire'
                   : _selectedFilter == 1
-                      ? 'Fresh & Shelf-Stable'
-                      : 'Expired Items',
+                  ? 'Fresh & Shelf-Stable'
+                  : 'Expired Items',
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
@@ -317,8 +327,8 @@ class _ExpiryTrackerScreenState extends State<ExpiryTrackerScreen> {
                           days == null
                               ? 'Safe'
                               : days < 0
-                                  ? '${days.abs()}d ago'
-                                  : '${days}d',
+                              ? '${days.abs()}d ago'
+                              : '${days}d',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w800,

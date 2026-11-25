@@ -1,0 +1,23 @@
+{
+  "configurations": [
+    {
+      "name": "Win32",
+      "includePath": [
+        "${workspaceFolder}/windows/flutter/ephemeral",
+        "${workspaceFolder}/windows/flutter/ephemeral/cpp_client_wrapper/include",
+        "${workspaceFolder}/windows/flutter/ephemeral/.plugin_symlinks/**"
+      ],
+      "browse": {
+        "path": [
+          "${workspaceFolder}/windows",
+          "${workspaceFolder}/windows/flutter/ephemeral"
+        ],
+        "limitSymbolsToIncludedHeaders": true
+      },
+      "configurationProvider": "ms-vscode.cmake-tools",
+      "cppStandard": "c++17",
+      "intelliSenseMode": "windows-msvc-x64"
+    }
+  ],
+  "version": 4
+}

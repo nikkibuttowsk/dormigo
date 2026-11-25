@@ -12,7 +12,7 @@ Future<void> main() async {
   try {
     await dotenv.load(fileName: '.env.local');
     final url = dotenv.env['SUPABASE_URL'] ?? '';
-    final key = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
+    final key = dotenv.env['SUPABASE_PUBLISHABLE_KEY'] ?? '';
     if (url.isNotEmpty && key.isNotEmpty) {
       await Supabase.initialize(url: url, publishableKey: key);
     }

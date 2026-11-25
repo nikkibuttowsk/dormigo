@@ -135,7 +135,7 @@ class _RecipesScreenState extends State<RecipesScreen> {
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: _filters.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  separatorBuilder: (_, _) => const SizedBox(width: 8),
                   itemBuilder: (context, idx) {
                     final label = _filters[idx] as String;
                     final isSelected = _selectedFilter == label;
@@ -220,7 +220,7 @@ class _RecipesScreenState extends State<RecipesScreen> {
                 child: ListView.separated(
                   padding: const EdgeInsets.only(bottom: 100),
                   itemCount: recipes.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 16),
+                  separatorBuilder: (_, _) => const SizedBox(height: 16),
                   itemBuilder: (context, index) {
                     final recipe = recipes[index];
                     final title = recipe['title'] as String;
