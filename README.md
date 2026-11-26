@@ -292,7 +292,7 @@ DORMIGO was developed by a team of students as part of an academic software deve
 | Name | GitHub |
 |------|--------|
 | Nikki C. Limboc | [@nikkibuttowsk](https://github.com/nikkibuttowsk)|
-| Chloe Yzabelle M. Gonzaga | [@DreiLunar](https://github.com/DreiLunar)|
+| Chloe Yzabelle M. Gonzaga | [@chlyzbll](https://github.com/chlyzbll)|
 | Jisselle Mae M. Silla | [@ellemrsgn27](https://github.com/ellemrsgn27) |
 | Lance T. Buenviaje | [@LncBnvj](https://github.com/LncBnvj)|
 
@@ -346,12 +346,8 @@ This project would not have been possible without the collaboration, dedication,
 
 <div align="center">
 
-## <p align="center"><i> 🏠 DORMIGO </i></p>
-
-Making every ingredient count, one meal at a time. 🌱
-
-Developed with 💚 using Flutter, Dart, Supabase, PostgreSQL, and AI Integration.
-
 ⭐ If you find this project interesting, consider giving this repository a star!
+
+## <p align="center"><i> 🏠 DORMIGO: Making every ingredient count, one meal at a time. 🌱 </i></p>
 
 </div>
