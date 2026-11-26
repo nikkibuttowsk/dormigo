@@ -1,7 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../utils/theme.dart';
-import 'main_shell.dart';
+import 'login_screen.dart';
 
 /// Figma screen 02: three swipeable pages with Skip and Next.
 class OnboardingScreen extends StatefulWidget {
@@ -11,7 +11,6 @@ class OnboardingScreen extends StatefulWidget {
   State<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
-// Plain data for one page. Add or edit pages in the list below.
 class _OnboardingPage {
   const _OnboardingPage({
     required this.icon,
@@ -59,7 +58,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   void _finish() {
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (_) => const MainShell()),
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
     );
   }
 
@@ -107,7 +106,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 itemBuilder: (context, i) => _PageContent(page: _pages[i]),
               ),
             ),
-            // Page indicator dots
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -159,7 +157,6 @@ class _PageContent extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Placeholder illustration. Later: Image.asset(...)
           Container(
             width: 230,
             height: 230,

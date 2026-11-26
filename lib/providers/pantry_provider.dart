@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../database/db_helper.dart';
-import '../models/pantry_item.dart';
 import '../database/seed_data.dart';
+import '../models/pantry_item.dart';
 
 class PantryProvider extends ChangeNotifier {
   final List<PantryItem> _items = [];
@@ -66,6 +68,9 @@ class PantryProvider extends ChangeNotifier {
     return s;
   }
 
+  int _loadGeneration = 0;
+  bool _isSeeding = false;
+
   static const List<String> allEquipment = [
     'Rice Cooker',
     'Kettle',
@@ -87,40 +92,101 @@ class PantryProvider extends ChangeNotifier {
     }
   }
 
-  /// Comment 3: Serialize overlapping loads by sharing the active Future.
-  Future<void> loadFromSupabase() {
-    _loadStarted = true;
-    return _inFlightLoad ??= _loadFromSupabase().whenComplete(() {
-      _inFlightLoad = null;
-      if (!_loaded.isCompleted) _loaded.complete();
-    });
+  /// Clears stale items, restores default equipment, and invalidates any in-flight queries.
+  void resetForNewSession() {
+    _loadGeneration++;
+    _items.clear();
+    _selectedEquipment
+      ..clear()
+      ..addAll({'Rice Cooker', 'Kettle'});
+    notifyListeners();
   }
 
-  Future<void> _loadFromSupabase() async {
+  /// Snapshot current in-memory items before signing in so they can migrate.
+  List<PantryItem> snapshotItems() => List<PantryItem>.from(_items);
+
+  /// Loads saved pantry items and equipment for the active session.
+  /// - [allowAnonymous]: if false, will NOT trigger an anonymous sign-in race.
+  /// - [guestItemsToMigrate]: items captured from a guest session before signing in.
+  Future<void> loadFromSupabase({
+    bool allowAnonymous = false,
+    List<PantryItem> guestItemsToMigrate = const [],
+  }) async {
+    final generation = ++_loadGeneration;
+
     if (!_isSupabaseReady) {
-      if (_items.isEmpty) {
-        _items.addAll(SeedData.starterPantryItems());
-        notifyListeners();
-      }
+      if (generation != _loadGeneration) return;
+      _items
+        ..clear()
+        ..addAll(
+          guestItemsToMigrate.isNotEmpty
+              ? guestItemsToMigrate
+              : SeedData.starterPantryItems(),
+        );
+      notifyListeners();
       return;
     }
 
     try {
-      final rows = await DbHelper.instance.fetchPantryItems();
-      if (rows.isEmpty && _items.isEmpty) {
-        for (final seed in SeedData.starterPantryItems()) {
-          final inserted = await DbHelper.instance.insertPantryItem({
-            'name': seed.name,
-            'category': seed.category.name,
-            'quantity': seed.quantity,
-            'unit': seed.unit,
-            'expiry_date': seed.expiryDate?.toIso8601String().split('T').first,
-            'storage_location': seed.storageLocation.name,
+      final client = Supabase.instance.client;
+      User? currentUser = client.auth.currentUser;
+
+      // Do not create an anonymous session during an authenticated login/signup flow
+      if (currentUser == null && !allowAnonymous) {
+        return;
+      }
+
+      if (generation != _loadGeneration) return;
+
+      // Migrate guest items into the authenticated user's Supabase pantry
+      if (guestItemsToMigrate.isNotEmpty &&
+          currentUser != null &&
+          !currentUser.isAnonymous) {
+        for (final item in guestItemsToMigrate) {
+          if (generation != _loadGeneration) return;
+          await DbHelper.instance.insertPantryItem({
+            'name': item.name,
+            'category': item.category.name,
+            'quantity': item.quantity,
+            'unit': item.unit,
+            'expiry_date': item.expiryDate?.toIso8601String().split('T').first,
+            'storage_location': item.storageLocation.name,
           });
-          _items.add(PantryItem.fromMap(inserted));
+        }
+      }
+
+      if (generation != _loadGeneration) return;
+
+      final rows = await DbHelper.instance.fetchPantryItems();
+      if (generation != _loadGeneration) return;
+
+      if (rows.isEmpty) {
+        // Prevent concurrent calls from inserting duplicate starter items
+        if (_isSeeding) return;
+        _isSeeding = true;
+        try {
+          final seeded = <PantryItem>[];
+          for (final seed in SeedData.starterPantryItems()) {
+            if (generation != _loadGeneration) return;
+            final inserted = await DbHelper.instance.insertPantryItem({
+              'name': seed.name,
+              'category': seed.category.name,
+              'quantity': seed.quantity,
+              'unit': seed.unit,
+              'expiry_date':
+                  seed.expiryDate?.toIso8601String().split('T').first,
+              'storage_location': seed.storageLocation.name,
+            });
+            seeded.add(PantryItem.fromMap(inserted));
+          }
+          if (generation != _loadGeneration) return;
+          _items
+            ..clear()
+            ..addAll(seeded);
+        } finally {
+          _isSeeding = false;
         }
       } else {
-        // Comment 1: Keep items added locally while the initial fetch was in flight.
         final fetched = rows.map((r) => PantryItem.fromMap(r)).toList();
         final fetchedIds = fetched.map((e) => e.id).toSet();
         final pendingLocal = _items
@@ -136,20 +202,26 @@ class PantryProvider extends ChangeNotifier {
       }
 
       final equip = await DbHelper.instance.fetchUserEquipment();
+      if (generation != _loadGeneration) return;
+
       _selectedEquipment
         ..clear()
         ..addAll(equip);
       notifyListeners();
     } catch (e) {
       debugPrint('Supabase load fallback to local seed: $e');
-      if (_items.isEmpty) {
-        _items.addAll(SeedData.starterPantryItems());
-        notifyListeners();
-      }
+      if (generation != _loadGeneration) return;
+      _items
+        ..clear()
+        ..addAll(
+          guestItemsToMigrate.isNotEmpty
+              ? guestItemsToMigrate
+              : SeedData.starterPantryItems(),
+        );
+      notifyListeners();
     }
   }
 
-  /// Comment 4: Reconcile on timeout/error so retrying never creates duplicate rows.
   Future<void> addNewItem({
     required String name,
     required FoodCategory category,
@@ -158,10 +230,11 @@ class PantryProvider extends ChangeNotifier {
     DateTime? expiryDate,
     required StorageLocation storageLocation,
   }) async {
+    final generation = _loadGeneration;
     final cleanName = name.trim();
     final expiryStr = expiryDate?.toIso8601String().split('T').first;
 
-    if (_isSupabaseReady) {
+    if (_isSupabaseReady && Supabase.instance.client.auth.currentUser != null) {
       try {
         final inserted = await DbHelper.instance.insertPantryItem({
           'name': cleanName,
@@ -171,13 +244,14 @@ class PantryProvider extends ChangeNotifier {
           'expiry_date': expiryStr,
           'storage_location': storageLocation.name,
         });
+        if (generation != _loadGeneration) return;
         final item = PantryItem.fromMap(inserted);
         _locallyAddedIds.add(item.id);
         _items.add(item);
-        notifyListeners();
-        return;
       } catch (_) {
+        if (generation != _loadGeneration) return;
         final rows = await DbHelper.instance.fetchPantryItems();
+        if (generation != _loadGeneration) return;
         final matches = rows.map((r) => PantryItem.fromMap(r)).where((r) =>
             r.name.trim().toLowerCase() == cleanName.toLowerCase() &&
             r.quantity == quantity &&
@@ -193,25 +267,27 @@ class PantryProvider extends ChangeNotifier {
         }
         rethrow;
       }
+    } else {
+      final localItem = PantryItem(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        name: cleanName,
+        category: category,
+        quantity: quantity,
+        unit: unit,
+        expiryDate: expiryDate,
+        storageLocation: storageLocation,
+      );
+      _locallyAddedIds.add(localItem.id);
+      _items.add(localItem);
     }
-
-    final item = PantryItem(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      name: cleanName,
-      category: category,
-      quantity: quantity,
-      unit: unit,
-      expiryDate: expiryDate,
-      storageLocation: storageLocation,
-    );
-    _locallyAddedIds.add(item.id);
-    _items.add(item);
     notifyListeners();
   }
 
   Future<void> updateEquipment(Set<String> equipment) async {
-    if (_isSupabaseReady) {
+    final generation = _loadGeneration;
+    if (_isSupabaseReady && Supabase.instance.client.auth.currentUser != null) {
       await DbHelper.instance.saveUserEquipment(equipment.toList());
+      if (generation != _loadGeneration) return;
     }
     _selectedEquipment
       ..clear()
@@ -242,7 +318,6 @@ class PantryProvider extends ChangeNotifier {
     }).toList();
   }
 
-  /// Comment 10: Only items expiring within 0–3 days count as urgent (not 6–7 day fresh items).
   PantryItem? get urgentItem {
     final urgent = _items.where((item) {
       final days = item.daysUntilExpiry;

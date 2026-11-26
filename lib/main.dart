@@ -2,6 +2,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'providers/auth_provider.dart';
 import 'providers/pantry_provider.dart';
 import 'screens/splash_screen.dart';
 import 'utils/theme.dart';
@@ -12,18 +14,25 @@ Future<void> main() async {
 
   try {
     await dotenv.load(fileName: '.env.local');
-    final url = dotenv.env['SUPABASE_URL'] ?? '';
-    final key = dotenv.env['SUPABASE_PUBLISHABLE_KEY'] ?? '';
-    if (url.isNotEmpty && key.isNotEmpty) {
-      await Supabase.initialize(url: url, publishableKey: key);
-    }
-  } catch (e) {
-    debugPrint('Supabase init skipped: $e');
+  } catch (_) {
+    try {
+      await dotenv.load(fileName: '.env.example');
+    } catch (_) {}
   }
 
+  final url = (dotenv.env['SUPABASE_URL'] ??
+          const String.fromEnvironment('SUPABASE_URL'))
+      .trim();
+  final anonKey = (dotenv.env['SUPABASE_ANON_KEY'] ??
+          const String.fromEnvironment('SUPABASE_ANON_KEY'))
+      .trim();
+
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => PantryProvider()..loadFromSupabase(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => PantryProvider()),
+      ],
       child: const DormigoApp(),
     ),
   );
