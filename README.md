@@ -22,33 +22,19 @@
 
 ---
 
-📑 Table of Contents
-
-Getting Started
-
-Project Overview
-
-Project Objectives
-
-Key Features
-
-Technology Stack
-
-System Architecture
-
-AI Integration
-
-Installation and Setup
-
-Project Scope and Limitations
-
-Future Enhancements
-
-Developers
-
-Acknowledgement
-
-References
+## 📑 Table of Contents
+1. [Getting Started](#getting-started)
+2. [Project Overview](#project-overview)
+3. [Project Objectives](#project-objectives)
+4. [Technology Stack](#tech-stack)
+5. [AI Integration](#ai-integration)
+6. [Installation and Setup](#installation-and-setup)
+7. [Project Scope and Limitations](#project-scope-and-limitations)
+8. [UML Diagram](#uml-diagram)
+9. [Future Enhancements](#future-enhancements)
+10. [Developers](#developers)
+11. [License](#license)
+12. [Acknowledgements](#acknowledgements)
 
 ## Getting Started
 
@@ -531,28 +517,6 @@ We would like to express our sincere gratitude to our project adviser for the co
 We also extend our appreciation to our instructors, classmates, and everyone who shared their knowledge and provided assistance during the planning, development, and improvement of the application.
 
 This project would not have been possible without the collaboration, dedication, and shared efforts of every member of the development team.
-
-<a id="-references"></a>
-
-📚 References
-
-The following official documentation and technical resources were used as references during the development of DORMIGO.
-
-Android Developers. (n.d.). Android developer documentation. https://developer.android.com/docs
-
-Dart. (n.d.). Dart programming language documentation. https://dart.dev/guides
-
-Figma. (n.d.). Figma Help Center. https://help.figma.com/
-
-Flutter. (n.d.). Flutter documentation. https://docs.flutter.dev/
-
-Git. (n.d.). Git documentation. https://git-scm.com/doc
-
-PostgreSQL Global Development Group. (n.d.). PostgreSQL documentation. https://www.postgresql.org/docs/
-
-Supabase. (n.d.). Supabase documentation. https://supabase.com/docs
-
-Visual Studio Code. (n.d.). Visual Studio Code documentation. https://code.visualstudio.com/docs
 
 <div align="center">
 
