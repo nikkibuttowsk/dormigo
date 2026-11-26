@@ -1,0 +1,14 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+        "name": "dormigo",
+        "request": "launch",
+        "type": "dart",
+        "toolArgs": [
+            "--dart-define=SUPABASE_URL=https://frxwcbtcwygzfucpzvxd.supabase.co",
+            "--dart-define=SUPABASE_ANON_KEY=sb_publishable_eBy0Pbr2zESYK6Gv3ppD6A_44Zhr-Ft"
+        ]
+        }
+    ]
+}

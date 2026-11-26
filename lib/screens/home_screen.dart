@@ -3,8 +3,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../models/pantry_item.dart';
-import '../providers/pantry_provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/pantry_provider.dart';
 import '../utils/theme.dart';
 import '../widgets/placeholder_screen.dart';
 import 'amigo_screen.dart';
@@ -18,20 +18,11 @@ class HomeScreen extends StatefulWidget {
     required this.onAddFood,
   });
 
-  /// Switches the bottom-nav tab
+  /// Switches the bottom-nav tab (1 = Pantry, 2 = Recipes, 3 = Profile).
   final ValueChanged<int> onOpenTab;
 
   /// Opens the main Add Food screen (photo / upload / manual).
   final VoidCallback onAddFood;
-
-  ImageProvider? _avatarImageProvider(String? url) {
-    if (url == null || url.isEmpty) return null;
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      return NetworkImage(url);
-    }
-    final file = File(url);
-    return file.existsSync() ? FileImage(file) : null;
-  }
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -96,8 +87,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _openNotifications() {
-    final notifications =
-        _buildNotifications(context.read<PantryProvider>());
+    final notifications = _buildNotifications(context.read<PantryProvider>());
     setState(() => _hasUnread = false);
     showModalBottomSheet<void>(
       context: context,
@@ -229,6 +219,15 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.push(context, MaterialPageRoute(builder: (_) => page));
   }
 
+  ImageProvider? _avatarImageProvider(String? url) {
+    if (url == null || url.isEmpty) return null;
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return NetworkImage(url);
+    }
+    final file = File(url);
+    return file.existsSync() ? FileImage(file) : null;
+  }
+
   // ---------------------------------------------------------------------------
   // Build
   // ---------------------------------------------------------------------------
@@ -275,6 +274,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildHeader(BuildContext context) {
     final auth = context.watch<AuthProvider>();
+    final pantry = context.watch<PantryProvider>();
+    final hasAlerts = _buildNotifications(pantry).isNotEmpty;
+
     final fullName = auth.displayName.trim();
     final firstName =
         fullName.isEmpty ? 'Chef' : fullName.split(RegExp(r'\s+')).first;
@@ -284,7 +286,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Row(
       children: [
         GestureDetector(
-          onTap: () => onOpenTab(3),
+          onTap: () => widget.onOpenTab(3),
           child: CircleAvatar(
             radius: 22,
             backgroundColor: AppColors.orange,
@@ -304,7 +306,7 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(width: 12),
         Expanded(
           child: GestureDetector(
-            onTap: () => onOpenTab(3),
+            onTap: () => widget.onOpenTab(3),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

@@ -39,7 +39,8 @@ class AuthProvider extends ChangeNotifier {
   SupabaseClient? get _client {
     try {
       return Supabase.instance.client;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('AuthProvider._client error: $e');
       return null;
     }
   }
@@ -377,9 +378,22 @@ class AuthProvider extends ChangeNotifier {
         UserAttributes(data: {'avatar_url': publicUrl}),
       );
       return true;
-    } catch (_) {
+    } on StorageException catch (e) {
+      debugPrint('Avatar upload StorageException: ${e.message} (status: ${e.statusCode})');
       _avatarUrl = prevAvatar;
-      _errorMessage = 'Failed to upload profile photo.';
+      _errorMessage = 'Storage error: ${e.message}';
+      notifyListeners();
+      return false;
+    } on AuthException catch (e) {
+      debugPrint('Avatar metadata AuthException: ${e.message}');
+      _avatarUrl = prevAvatar;
+      _errorMessage = 'Profile error: ${e.message}';
+      notifyListeners();
+      return false;
+    } catch (e, st) {
+      debugPrint('Avatar upload unexpected error: $e\n$st');
+      _avatarUrl = prevAvatar;
+      _errorMessage = 'Upload failed: $e';
       notifyListeners();
       return false;
     }
