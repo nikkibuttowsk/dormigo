@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
+import '../models/pantry_item.dart';
 import '../providers/auth_provider.dart';
 import '../providers/pantry_provider.dart';
 import '../utils/theme.dart';
@@ -45,26 +46,31 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-    FocusScope.of(context).unfocus();
+    if (!(_formKey.currentState?.validate() ?? false)) return;
 
     final auth = context.read<AuthProvider>();
     final pantry = context.read<PantryProvider>();
+    final guestBackup = auth.isGuest ? pantry.snapshotItems() : <PantryItem>[];
+    auth.clearError();
 
-    final ok = _isSignUp
-        ? await auth.signUp(
+    final ok = !_isSignUp
+        ? await auth.signIn(
             email: _emailCtrl.text,
             password: _passwordCtrl.text,
-            displayName: _nameCtrl.text,
           )
-        : await auth.signIn(
+        : await auth.signUp(
             email: _emailCtrl.text,
             password: _passwordCtrl.text,
+            fullName: _nameCtrl.text,
           );
 
     if (!mounted) return;
     if (ok) {
-      await pantry.loadFromSupabase();
+      pantry.resetForNewSession();
+      await pantry.loadFromSupabase(
+        allowAnonymous: false,
+        guestItemsToMigrate: guestBackup,
+      );
       if (!mounted) return;
       Navigator.pushAndRemoveUntil(
         context,
@@ -74,8 +80,13 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _enterAsGuest() {
-    context.read<AuthProvider>().continueAsGuest();
+  Future<void> _continueAsGuest() async {
+    final auth = context.read<AuthProvider>();
+    final pantry = context.read<PantryProvider>();
+    pantry.resetForNewSession();
+    await auth.continueAsGuest();
+    await pantry.loadFromSupabase(allowAnonymous: true);
+    if (!mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => const MainShell()),
@@ -314,7 +325,9 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 20),
               Row(
                 children: [
-                  Expanded(child: Divider(color: Colors.black.withValues(alpha: 0.1))),
+                  Expanded(
+                    child: Divider(color: Colors.black.withValues(alpha: 0.1)),
+                  ),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 12),
                     child: Text(
@@ -326,14 +339,16 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ),
-                  Expanded(child: Divider(color: Colors.black.withValues(alpha: 0.1))),
+                  Expanded(
+                    child: Divider(color: Colors.black.withValues(alpha: 0.1)),
+                  ),
                 ],
               ),
               const SizedBox(height: 16),
 
               // Continue as Guest Button
               OutlinedButton.icon(
-                onPressed: auth.isLoading ? null : _enterAsGuest,
+                onPressed: auth.isLoading ? null : _continueAsGuest,
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.green,
                   side: const BorderSide(color: AppColors.green, width: 1.5),

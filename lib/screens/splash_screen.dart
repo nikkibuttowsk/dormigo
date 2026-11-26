@@ -2,11 +2,11 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
+import '../providers/pantry_provider.dart';
 import '../utils/theme.dart';
 import 'main_shell.dart';
 import 'onboarding_screen.dart';
 
-/// Figma screen 01: logo, mascot and a "Get Started" button.
 class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});
 
@@ -97,8 +97,15 @@ class SplashScreen extends StatelessWidget {
                       foregroundColor: AppColors.green,
                     ),
                     onPressed: () {
-                      final isAuthenticated =
-                          context.read<AuthProvider>().isAuthenticated;
+                      final auth = context.read<AuthProvider>();
+                      final isAuthenticated = auth.isAuthenticated;
+
+                      if (isAuthenticated) {
+                        context.read<PantryProvider>().loadFromSupabase(
+                              allowAnonymous: false,
+                            );
+                      }
+
                       Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(

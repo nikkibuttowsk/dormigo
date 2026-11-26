@@ -2,10 +2,10 @@ import 'dart:io';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
+import '../providers/auth_provider.dart';
 import '../utils/theme.dart';
 import '../widgets/placeholder_screen.dart';
 import 'expiry_tracker_screen.dart';
-import '../providers/auth_provider.dart';
 
 /// Figma screen 03.
 class HomeScreen extends StatelessWidget {
@@ -15,9 +15,18 @@ class HomeScreen extends StatelessWidget {
     required this.onAddFood,
   });
 
-  /// Switches the bottom-nav tab (1 = Pantry, 2 = Recipes).
+  /// Switches the bottom-nav tab
   final ValueChanged<int> onOpenTab;
   final VoidCallback onAddFood;
+
+  ImageProvider? _avatarImageProvider(String? url) {
+    if (url == null || url.isEmpty) return null;
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return NetworkImage(url);
+    }
+    final file = File(url);
+    return file.existsSync() ? FileImage(file) : null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,8 +74,7 @@ class HomeScreen extends StatelessWidget {
     final firstName =
         fullName.isEmpty ? 'Chef' : fullName.split(RegExp(r'\s+')).first;
     final initial = firstName[0].toUpperCase();
-    final hasValidAvatar =
-        auth.avatarPath != null && File(auth.avatarPath!).existsSync();
+    final avatarProvider = _avatarImageProvider(auth.avatarUrl);
 
     return Row(
       children: [
@@ -75,9 +83,8 @@ class HomeScreen extends StatelessWidget {
           child: CircleAvatar(
             radius: 22,
             backgroundColor: AppColors.orange,
-            backgroundImage:
-                hasValidAvatar ? FileImage(File(auth.avatarPath!)) : null,
-            child: !hasValidAvatar
+            backgroundImage: avatarProvider,
+            child: avatarProvider == null
                 ? Text(
                     initial,
                     style: const TextStyle(

@@ -1,6 +1,6 @@
 import 'dart:io';
-import 'package:image_picker/image_picker.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
@@ -19,6 +19,15 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  ImageProvider? _avatarImageProvider(String? url) {
+    if (url == null || url.isEmpty) return null;
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return NetworkImage(url);
+    }
+    final file = File(url);
+    return file.existsSync() ? FileImage(file) : null;
+  }
+
   Future<void> _pickAvatarSheet(AuthProvider auth) async {
     final picker = ImagePicker();
 
@@ -31,7 +40,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
         imageQuality: 85,
       );
       if (file != null) {
-        await auth.updateAvatar(file.path);
+        final ok = await auth.updateAvatar(file.path);
+        if (!mounted || ok) return;
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(
+                auth.errorMessage ?? 'Failed to upload profile photo',
+              ),
+            ),
+          );
       }
     }
 
@@ -71,7 +90,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 title: const Text('Take a Photo'),
                 onTap: () => pick(sheetCtx, ImageSource.camera),
               ),
-              if (auth.avatarPath != null)
+              if (auth.avatarUrl != null && auth.avatarUrl!.isNotEmpty)
                 ListTile(
                   leading: const Icon(
                     Icons.delete_outline,
@@ -187,7 +206,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       minimumSize: const Size.fromHeight(48),
                     ),
                     onPressed: () async {
-                      await auth.updateProfile(
+                      final saved = await auth.updateProfile(
                         displayName: nameCtrl.text,
                         handle: handleCtrl.text,
                         dormInfo: dormCtrl.text,
@@ -199,7 +218,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ScaffoldMessenger.of(context)
                         ..hideCurrentSnackBar()
                         ..showSnackBar(
-                          const SnackBar(content: Text('Profile updated')),
+                          SnackBar(
+                            content: Text(
+                              saved
+                                  ? 'Profile updated'
+                                  : (auth.errorMessage ??
+                                      'Failed to save profile'),
+                            ),
+                          ),
                         );
                     },
                     child: const Text('Save'),
@@ -249,8 +275,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ? const Icon(Icons.check_circle, color: AppColors.green)
                     : null,
                 onTap: () async {
-                  await auth.updateProfile(preferences: opt);
+                  final saved = await auth.updateProfile(preferences: opt);
                   if (sheetCtx.mounted) Navigator.pop(sheetCtx);
+                  if (!mounted || saved) return;
+                  ScaffoldMessenger.of(context)
+                    ..hideCurrentSnackBar()
+                    ..showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          auth.errorMessage ?? 'Failed to save preferences',
+                        ),
+                      ),
+                    );
                 },
               ),
             ),
@@ -289,6 +325,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (shouldLogout != true || !mounted) return;
 
+    context.read<PantryProvider>().resetForNewSession();
     await auth.signOut();
     if (!mounted) return;
     Navigator.pushAndRemoveUntil(
@@ -304,8 +341,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final provider = context.watch<PantryProvider>();
     final itemCount = provider.items.length;
     final equipCount = provider.selectedEquipment.length;
-    final hasValidAvatar =
-        auth.avatarPath != null && File(auth.avatarPath!).existsSync();
+    final avatarProvider = _avatarImageProvider(auth.avatarUrl);
 
     return Scaffold(
       backgroundColor: AppColors.cream,
@@ -343,14 +379,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               color: const Color(0xFFCDE0BA),
                               shape: BoxShape.circle,
                               border: Border.all(color: Colors.white, width: 4),
-                              image: hasValidAvatar
+                              image: avatarProvider != null
                                   ? DecorationImage(
-                                      image: FileImage(File(auth.avatarPath!)),
+                                      image: avatarProvider,
                                       fit: BoxFit.cover,
                                     )
                                   : null,
                             ),
-                            child: !hasValidAvatar
+                            child: avatarProvider == null
                                 ? const Icon(
                                     Icons.face_3_rounded,
                                     size: 62,
@@ -614,9 +650,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       icon: Icons.notifications_none_rounded,
                       title: 'Notifications',
                       trailingText: auth.notificationsOn ? 'On' : 'Off',
-                      onTap: () => auth.updateProfile(
-                        notificationsOn: !auth.notificationsOn,
-                      ),
+                      onTap: () async {
+                        final saved = await auth.updateProfile(
+                          notificationsOn: !auth.notificationsOn,
+                        );
+                        if (!context.mounted || saved) return;
+                        ScaffoldMessenger.of(context)
+                          ..hideCurrentSnackBar()
+                          ..showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                auth.errorMessage ??
+                                    'Failed to update notifications',
+                              ),
+                            ),
+                          );
+                      },
                     ),
                     const Divider(height: 1, indent: 60),
                     _menuTile(
