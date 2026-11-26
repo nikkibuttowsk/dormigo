@@ -9,16 +9,21 @@ class DbHelper {
 
   final SupabaseClient _client = Supabase.instance.client;
 
-  String? get currentUserId => _client.auth.currentUser?.id;
+  /// Returns the current authenticated (non-anonymous) user's ID, or null.
+  String? get currentUserId {
+    final user = _client.auth.currentUser;
+    if (user == null || user.isAnonymous) return null;
+    return user.id;
+  }
 
-  /// Ensures user has an active session (uses anonymous sign-in for instant onboarding)
-  Future<String> ensureSession() async {
-    if (_client.auth.currentUser == null) {
-      await _client.auth.signInAnonymously();
+  /// Ensures a signed-in (non-anonymous) user and user_profiles row exist.
+  /// Never calls signInAnonymously() so guests stay strictly local.
+  Future<String> requireAuthenticatedUserId() async {
+    final uid = currentUserId;
+    if (uid == null) {
+      throw StateError('Authenticated user required for Supabase operations.');
     }
-    final uid = _client.auth.currentUser!.id;
 
-    // Ensure profile row exists
     await _client.from('user_profiles').upsert(
       {'id': uid},
       onConflict: 'id',
@@ -30,7 +35,7 @@ class DbHelper {
 
   // --- PANTRY CRUD ---
   Future<List<JsonMap>> fetchPantryItems() async {
-    final uid = await ensureSession();
+    final uid = await requireAuthenticatedUserId();
     final response = await _client
         .from('pantry_items')
         .select()
@@ -41,7 +46,7 @@ class DbHelper {
   }
 
   Future<JsonMap> insertPantryItem(JsonMap data) async {
-    final uid = await ensureSession();
+    final uid = await requireAuthenticatedUserId();
     final payload = <String, dynamic>{
       ...data,
       'user_id': uid,
@@ -56,26 +61,30 @@ class DbHelper {
   }
 
   Future<void> updateItemStatus(String itemId, String status) async {
+    final uid = await requireAuthenticatedUserId();
     // status: 'consumed' (saved!) or 'discarded' (wasted)
     await _client
         .from('pantry_items')
         .update({'status': status})
-        .eq('id', itemId);
+        .eq('id', itemId)
+        .eq('user_id', uid);
   }
 
   // --- EQUIPMENT (Screen 08) ---
   Future<List<String>> fetchUserEquipment() async {
-    final uid = await ensureSession();
+    final uid = await requireAuthenticatedUserId();
     final response = await _client
         .from('user_profiles')
         .select('equipment')
         .eq('id', uid)
-        .single();
-    return List<String>.from(response['equipment'] ?? ['Rice Cooker', 'Kettle']);
+        .maybeSingle();
+    return List<String>.from(
+      response?['equipment'] ?? ['Rice Cooker', 'Kettle'],
+    );
   }
 
   Future<void> saveUserEquipment(List<String> equipment) async {
-    final uid = await ensureSession();
+    final uid = await requireAuthenticatedUserId();
     await _client.from('user_profiles').upsert({
       'id': uid,
       'equipment': equipment,

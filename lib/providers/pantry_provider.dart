@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter/foundation.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../database/db_helper.dart';
@@ -13,12 +13,9 @@ class PantryProvider extends ChangeNotifier {
   final Set<String> _selectedEquipment = {'Rice Cooker', 'Kettle'};
   final Set<String> _locallyAddedIds = {};
 
-  Future<void>? _inFlightLoad;
-  bool _loadStarted = false;
-  final Completer<void> _loaded = Completer<void>();
+  Future<void>? _activeLoadFuture;
 
-  Future<void> get whenLoaded =>
-      _loadStarted ? _loaded.future : Future<void>.value();
+  Future<void> get whenLoaded => _activeLoadFuture ?? Future<void>.value();
 
   final Set<String> _savedRecipeTitles = {};
 
@@ -44,7 +41,7 @@ class PantryProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Comments 8 & 9: Match normalized names exactly (not substrings) and exclude expired items.
+  /// Match normalized names exactly (not substrings) and exclude expired items.
   List<String> missingIngredients(List ingredients) {
     final validNormalized = _items
         .where((e) => e.daysUntilExpiry == null || e.daysUntilExpiry! >= 0)
@@ -83,10 +80,10 @@ class PantryProvider extends ChangeNotifier {
   List<PantryItem> get items => List.unmodifiable(_items);
   Set<String> get selectedEquipment => Set.unmodifiable(_selectedEquipment);
 
-  bool get _isSupabaseReady {
+  bool get _hasAuthenticatedUser {
     try {
-      Supabase.instance.client;
-      return true;
+      final user = Supabase.instance.client.auth.currentUser;
+      return user != null && !user.isAnonymous;
     } catch (_) {
       return false;
     }
@@ -95,7 +92,9 @@ class PantryProvider extends ChangeNotifier {
   /// Clears stale items, restores default equipment, and invalidates any in-flight queries.
   void resetForNewSession() {
     _loadGeneration++;
+    _activeLoadFuture = null;
     _items.clear();
+    _locallyAddedIds.clear();
     _selectedEquipment
       ..clear()
       ..addAll({'Rice Cooker', 'Kettle'});
@@ -106,15 +105,28 @@ class PantryProvider extends ChangeNotifier {
   List<PantryItem> snapshotItems() => List<PantryItem>.from(_items);
 
   /// Loads saved pantry items and equipment for the active session.
-  /// - [allowAnonymous]: if false, will NOT trigger an anonymous sign-in race.
-  /// - [guestItemsToMigrate]: items captured from a guest session before signing in.
+  /// - Guests (no authenticated user) receive starter items strictly in memory.
+  /// - Authenticated users load their own rows from Supabase and seed starter
+  ///   items once per account (`pantry_seeded` metadata flag).
   Future<void> loadFromSupabase({
+    bool allowAnonymous = false,
+    List<PantryItem> guestItemsToMigrate = const [],
+  }) {
+    final future = _runLoadFromSupabase(
+      allowAnonymous: allowAnonymous,
+      guestItemsToMigrate: guestItemsToMigrate,
+    );
+    _activeLoadFuture = future;
+    return future;
+  }
+
+  Future<void> _runLoadFromSupabase({
     bool allowAnonymous = false,
     List<PantryItem> guestItemsToMigrate = const [],
   }) async {
     final generation = ++_loadGeneration;
 
-    if (!_isSupabaseReady) {
+    if (!_hasAuthenticatedUser) {
       if (generation != _loadGeneration) return;
       _items
         ..clear()
@@ -129,19 +141,11 @@ class PantryProvider extends ChangeNotifier {
 
     try {
       final client = Supabase.instance.client;
-      User? currentUser = client.auth.currentUser;
-
-      // Do not create an anonymous session during an authenticated login/signup flow
-      if (currentUser == null && !allowAnonymous) {
-        return;
-      }
-
-      if (generation != _loadGeneration) return;
+      final currentUser = client.auth.currentUser;
+      if (currentUser == null || currentUser.isAnonymous) return;
 
       // Migrate guest items into the authenticated user's Supabase pantry
-      if (guestItemsToMigrate.isNotEmpty &&
-          currentUser != null &&
-          !currentUser.isAnonymous) {
+      if (guestItemsToMigrate.isNotEmpty) {
         for (final item in guestItemsToMigrate) {
           if (generation != _loadGeneration) return;
           await DbHelper.instance.insertPantryItem({
@@ -160,8 +164,10 @@ class PantryProvider extends ChangeNotifier {
       final rows = await DbHelper.instance.fetchPantryItems();
       if (generation != _loadGeneration) return;
 
-      if (rows.isEmpty) {
-        // Prevent concurrent calls from inserting duplicate starter items
+      final alreadySeeded =
+          currentUser.userMetadata?['pantry_seeded'] == true;
+
+      if (rows.isEmpty && !alreadySeeded) {
         if (_isSeeding) return;
         _isSeeding = true;
         try {
@@ -180,6 +186,13 @@ class PantryProvider extends ChangeNotifier {
             seeded.add(PantryItem.fromMap(inserted));
           }
           if (generation != _loadGeneration) return;
+
+          // Mark account as seeded so clearing the pantry later won't re-seed
+          await client.auth.updateUser(
+            UserAttributes(data: {'pantry_seeded': true}),
+          );
+          if (generation != _loadGeneration) return;
+
           _items
             ..clear()
             ..addAll(seeded);
@@ -187,6 +200,15 @@ class PantryProvider extends ChangeNotifier {
           _isSeeding = false;
         }
       } else {
+        if (!alreadySeeded) {
+          // Existing user already has items; mark seeded so future empty states stay empty
+          unawaited(
+            client.auth.updateUser(
+              UserAttributes(data: {'pantry_seeded': true}),
+            ),
+          );
+        }
+
         final fetched = rows.map((r) => PantryItem.fromMap(r)).toList();
         final fetchedIds = fetched.map((e) => e.id).toSet();
         final pendingLocal = _items
@@ -234,7 +256,7 @@ class PantryProvider extends ChangeNotifier {
     final cleanName = name.trim();
     final expiryStr = expiryDate?.toIso8601String().split('T').first;
 
-    if (_isSupabaseReady && Supabase.instance.client.auth.currentUser != null) {
+    if (_hasAuthenticatedUser) {
       try {
         final inserted = await DbHelper.instance.insertPantryItem({
           'name': cleanName,
@@ -285,7 +307,7 @@ class PantryProvider extends ChangeNotifier {
 
   Future<void> updateEquipment(Set<String> equipment) async {
     final generation = _loadGeneration;
-    if (_isSupabaseReady && Supabase.instance.client.auth.currentUser != null) {
+    if (_hasAuthenticatedUser) {
       await DbHelper.instance.saveUserEquipment(equipment.toList());
       if (generation != _loadGeneration) return;
     }
