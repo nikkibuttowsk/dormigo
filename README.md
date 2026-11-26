@@ -36,6 +36,10 @@
 11. [License](#license)
 12. [Acknowledgements](#acknowledgements)
 
+---
+
+<br>
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.
@@ -50,9 +54,11 @@ For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
 
-<a id="-project-overview"></a>
+<br>
 
-📌 Project Overview
+---
+
+## 📌 Project Overview
 
 DORMIGO is a Flutter-based mobile application developed using the Dart programming language and AI integration. It was designed to address the challenges faced by dormitory students in managing their food supplies due to limited storage, busy academic schedules, and restricted cooking equipment.
 
@@ -65,18 +71,16 @@ Through AI-powered food identification and recipe recommendations, the applicati
 The system covers the main processes of food management: from adding ingredients to a digital pantry and monitoring expiration dates, to discovering suitable recipes, following cooking instructions, and tracking food consumption.
 
 🎯 Target Users
+- **Dormitory Students** – Students looking for a convenient way to organize food supplies and discover practical meals.
+- **College Students** – Students who have limited time, budgets, storage space, and access to cooking appliances.
+- **Students in Shared** Accommodations – Individuals who want to monitor available ingredients and minimize unnecessary food purchases.
+- **Future Developers** – Developers and students who may maintain, improve, or extend the application's functionalities.
 
-Dormitory Students – Students looking for a convenient way to organize food supplies and discover practical meals.
+<br>
 
-College Students – Students who have limited time, budgets, storage space, and access to cooking appliances.
+---
 
-Students in Shared Accommodations – Individuals who want to monitor available ingredients and minimize unnecessary food purchases.
-
-Future Developers – Developers and students who may maintain, improve, or extend the application's functionalities.
-
-<a id="-project-objectives"></a>
-
-🎯 Project Objectives
+## 🎯 Project Objectives
 
 General Objective
 
