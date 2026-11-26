@@ -16,7 +16,7 @@
 
 </div>
 
-![Dormigo](Dormigo.jpg)
+![Dormigo](Dormigo.png)
 
 <br>
 
