@@ -288,41 +288,29 @@ build/app/outputs/flutter-apk/app-release.apk
 
 ## Project Scope and Limitations
 
+**Project Scope**
+
 DORMIGO focuses on seven major functionalities:
-
-Smart Digital Pantry
-
-Expiry Date Tracker
-
-Smart Recipe Recommendations
-
-Dorm Equipment Filter
-
-Step-by-Step Cooking Guide
-
-Food Waste Monitor
-
-User Profile Management
+- Smart Digital Pantry
+- Expiry Date Tracker
+- Smart Recipe Recommendations
+- Dorm Equipment Filter
+- Step-by-Step Cooking Guide
+- Food Waste Monitor
+- User Profile Management
 
 The application is designed primarily for Android devices and focuses on food inventory organization, expiration monitoring, and practical meal recommendations.
 
-Project Limitations
+**Project Limitations**
 
-Internet Dependency: Features requiring Supabase synchronization and external AI services need an active internet connection.
-
-AI Identification Accuracy: Food identification may produce inaccurate or incomplete results depending on image quality, lighting, and food similarity.
-
-Recipe Recommendation Limitations: AI-generated recipes may vary in relevance depending on available ingredients, equipment selections, and information provided by the user.
-
-Manual Data Entry: Users are responsible for providing accurate food quantities and expiration dates.
-
-Limited Recipe Collection: The initial recipe database is designed to contain at least 30 seeded recipes.
-
-Equipment Availability: Recipe filtering is limited to supported dormitory cooking appliances, such as rice cookers, kettles, microwaves, and hot plates.
-
-Food Safety: DORMIGO does not guarantee food safety or determine whether ingredients are safe for consumption. Users must still observe proper food handling and storage practices.
-
-Platform Compatibility: The application is primarily developed for Android devices, and its functionality may vary depending on device specifications and operating system compatibility.
+- **Internet Dependency:** Features requiring Supabase synchronization and external AI services need an active internet connection.
+- **AI Identification Accuracy:** Food identification may produce inaccurate or incomplete results depending on image quality, lighting, and food similarity.
+- **Recipe Recommendation Limitations:** AI-generated recipes may vary in relevance depending on available ingredients, equipment selections, and information provided by the user.
+- **Manual Data Entry:** Users are responsible for providing accurate food quantities and expiration dates.
+- **Limited Recipe Collection:** The initial recipe database is designed to contain at least 30 seeded recipes.
+- **Equipment Availability:** Recipe filtering is limited to supported dormitory cooking appliances, such as rice cookers, kettles, microwaves, and hot plates.
+- **Food Safety:** DORMIGO does not guarantee food safety or determine whether ingredients are safe for consumption. Users must still observe proper food handling and storage practices.
+- **Platform Compatibility:** The application is primarily developed for Android devices, and its functionality may vary depending on device specifications and operating system compatibility.
 
 <br>
 
