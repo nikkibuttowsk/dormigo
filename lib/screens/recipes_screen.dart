@@ -15,7 +15,6 @@ class RecipesScreen extends StatefulWidget {
 
 class _RecipesScreenState extends State<RecipesScreen> {
   String _selectedFilter = 'All';
-  final Set _bookmarkedTitles = {'Creamy Tuna Pasta'};
   final List _filters = const ['All', 'Quick', 'Healthy', 'Budget'];
 
   int _calculateMatchPercent(List ingredients, List pantryNames) {
@@ -135,7 +134,7 @@ class _RecipesScreenState extends State<RecipesScreen> {
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: _filters.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  separatorBuilder: (_, _) => const SizedBox(width: 8),
                   itemBuilder: (context, idx) {
                     final label = _filters[idx] as String;
                     final isSelected = _selectedFilter == label;
@@ -220,7 +219,7 @@ class _RecipesScreenState extends State<RecipesScreen> {
                 child: ListView.separated(
                   padding: const EdgeInsets.only(bottom: 100),
                   itemCount: recipes.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 16),
+                  separatorBuilder: (_, _) => const SizedBox(height: 16),
                   itemBuilder: (context, index) {
                     final recipe = recipes[index];
                     final title = recipe['title'] as String;
@@ -229,7 +228,8 @@ class _RecipesScreenState extends State<RecipesScreen> {
                     final equipment = List.from(recipe['equipment'] ?? []);
                     final matchPct =
                         _calculateMatchPercent(ingredients, pantryNames);
-                    final isBookmarked = _bookmarkedTitles.contains(title);
+                    // Shared with Home: saved state lives in PantryProvider.
+                    final isBookmarked = provider.isRecipeSaved(title);
                     final isWarmOrange = index.isEven;
 
                     return GestureDetector(
@@ -301,15 +301,8 @@ class _RecipesScreenState extends State<RecipesScreen> {
                                     top: 12,
                                     right: 12,
                                     child: GestureDetector(
-                                      onTap: () {
-                                        setState(() {
-                                          if (isBookmarked) {
-                                            _bookmarkedTitles.remove(title);
-                                          } else {
-                                            _bookmarkedTitles.add(title);
-                                          }
-                                        });
-                                      },
+                                      onTap: () =>
+                                          provider.toggleRecipeSaved(title),
                                       child: Container(
                                         width: 36,
                                         height: 36,

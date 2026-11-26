@@ -1,6 +1,9 @@
 import 'package:dormigo/screens/recipes_screen.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:provider/provider.dart';
 
+import '../models/pantry_item.dart';
+import '../providers/pantry_provider.dart';
 import '../utils/theme.dart';
 import 'add_food_screen.dart';
 import 'home_screen.dart';
@@ -9,7 +12,6 @@ import 'profile_screen.dart';
 
 
 /// Holds the bottom navigation bar and switches between the main tabs.
-/// Tabs: 0 Home, 1 Pantry, 2 Recipes, 3 Profile.
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
 
@@ -22,11 +24,52 @@ class _MainShellState extends State<MainShell> {
 
   void _selectTab(int i) => setState(() => _index = i);
 
-  Future<void> _openAddFood() async {
-    await Navigator.push(
+ Future<void> _openAddFood() async {
+    final drafts = await Navigator.push<List<DraftFood>>(
       context,
       MaterialPageRoute(builder: (_) => const AddFoodScreen()),
     );
+    if (!mounted || drafts == null || drafts.isEmpty) return;
+
+    final pantry = context.read<PantryProvider>();
+    final defaultCategory = FoodCategory.values.firstWhere(
+      (c) => c.name == 'other',
+      orElse: () => FoodCategory.values.first,
+    );
+    final defaultStorage = StorageLocation.values.firstWhere(
+      (s) => s.name == 'pantry' || s.name == 'shelf',
+      orElse: () => StorageLocation.values.first,
+    );
+
+    try {
+      for (final draft in drafts) {
+        await pantry.addNewItem(
+          name: draft.name,
+          category: defaultCategory,
+          quantity: draft.quantity.toDouble(),
+          unit: 'pcs',
+          expiryDate: draft.expiry,
+          storageLocation: defaultStorage,
+        );
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              'Added ${drafts.length} item${drafts.length == 1 ? '' : 's'} to pantry',
+            ),
+          ),
+        );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not save items. Check your connection.'),
+        ),
+      );
+    }
   }
 
   @override

@@ -25,11 +25,6 @@ class DraftFood {
   }
 }
 
-/// Figma screen 04: take or upload a photo, or type items manually, then
-/// confirm names, quantities and expiry dates before adding to the pantry.
-///
-/// Note: Flutter cannot recognise food from a photo by itself, so the photo is
-/// a reference and the user types the item names.
 class AddFoodScreen extends StatefulWidget {
   const AddFoodScreen({super.key});
 

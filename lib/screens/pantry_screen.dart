@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
+
 import '../models/pantry_item.dart';
 import '../providers/pantry_provider.dart';
 import '../utils/theme.dart';
@@ -25,7 +26,8 @@ class _PantryScreenState extends State<PantryScreen> {
     final filtered = allItems.where((item) {
       final matchesCat =
           _selectedCategory == null || item.category == _selectedCategory;
-      final matchesSearch = _searchQuery.isEmpty ||
+      final matchesSearch =
+          _searchQuery.isEmpty ||
           item.name.toLowerCase().contains(_searchQuery.toLowerCase());
       return matchesCat && matchesSearch;
     }).toList();
@@ -160,11 +162,11 @@ class _PantryScreenState extends State<PantryScreen> {
                       itemCount: filtered.length,
                       gridDelegate:
                           const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        childAspectRatio: 0.86,
-                      ),
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            childAspectRatio: 0.86,
+                          ),
                       itemBuilder: (context, index) {
                         return _PantryItemCard(item: filtered[index]);
                       },
@@ -191,23 +193,23 @@ class _PantryItemCard extends StatelessWidget {
     final badgeBg = isUrgent
         ? AppColors.alertBg
         : status == ExpiryStatus.expiringSoon
-            ? const Color(0xFFF6E2B3)
-            : AppColors.paleGreen;
+        ? const Color(0xFFF6E2B3)
+        : AppColors.paleGreen;
 
     final badgeText = isUrgent
         ? AppColors.alertText
         : status == ExpiryStatus.expiringSoon
-            ? const Color(0xFF9E6B00)
-            : AppColors.green;
+        ? const Color(0xFF9E6B00)
+        : AppColors.green;
 
     final days = item.daysUntilExpiry;
     final badgeLabel = days == null
         ? item.storageLabel
         : days < 0
-            ? 'Expired'
-            : days <= 2
-                ? 'Use first · ${days}d'
-                : '$days days left';
+        ? 'Expired'
+        : days <= 2
+        ? 'Use first · ${days}d'
+        : '$days days left';
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -215,7 +217,9 @@ class _PantryItemCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isUrgent ? AppColors.alertText.withOpacity(0.5) : Colors.transparent,
+          color: isUrgent
+              ? AppColors.alertText.withValues(alpha: 0.5)
+              : Colors.transparent,
           width: 1.5,
         ),
       ),
@@ -227,7 +231,7 @@ class _PantryItemCard extends StatelessWidget {
               width: double.infinity,
               decoration: BoxDecoration(
                 color: isUrgent
-                    ? AppColors.alertBg.withOpacity(0.45)
+                    ? AppColors.alertBg.withValues(alpha: 0.45)
                     : AppColors.cream,
                 borderRadius: BorderRadius.circular(14),
               ),
@@ -252,10 +256,7 @@ class _PantryItemCard extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             '${item.quantity % 1 == 0 ? item.quantity.toInt() : item.quantity} ${item.unit}',
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppColors.textMuted,
-            ),
+            style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
           ),
           const SizedBox(height: 8),
           Container(

@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -8,6 +11,62 @@ import '../models/pantry_item.dart';
 class PantryProvider extends ChangeNotifier {
   final List<PantryItem> _items = [];
   final Set<String> _selectedEquipment = {'Rice Cooker', 'Kettle'};
+  final Set<String> _locallyAddedIds = {};
+
+  Future<void>? _inFlightLoad;
+  bool _loadStarted = false;
+  final Completer<void> _loaded = Completer<void>();
+
+  Future<void> get whenLoaded =>
+      _loadStarted ? _loaded.future : Future<void>.value();
+
+  final Set<String> _savedRecipeTitles = {};
+
+  Set<String> get savedRecipeTitles => Set.unmodifiable(_savedRecipeTitles);
+
+  bool isRecipeSaved(String title) => _savedRecipeTitles.contains(title);
+
+  void toggleRecipeSaved(String title) {
+    if (!_savedRecipeTitles.remove(title)) _savedRecipeTitles.add(title);
+    notifyListeners();
+  }
+
+  final List<String> _shoppingList = [];
+
+  List<String> get shoppingList => List.unmodifiable(_shoppingList);
+
+  void addToShoppingList(Iterable<String> names) {
+    for (final n in names) {
+      final exists =
+          _shoppingList.any((s) => s.toLowerCase() == n.toLowerCase());
+      if (!exists) _shoppingList.add(n);
+    }
+    notifyListeners();
+  }
+
+  /// Comments 8 & 9: Match normalized names exactly (not substrings) and exclude expired items.
+  List<String> missingIngredients(List ingredients) {
+    final validNormalized = _items
+        .where((e) => e.daysUntilExpiry == null || e.daysUntilExpiry! >= 0)
+        .map((e) => _normalizeIngredient(e.name))
+        .toSet();
+
+    return [
+      for (final ing in ingredients)
+        if (!validNormalized.contains(_normalizeIngredient(ing.toString())))
+          ing.toString(),
+    ];
+  }
+
+  String _normalizeIngredient(String raw) {
+    var s = raw.trim().toLowerCase();
+    if (s.endsWith('es') && s.length > 4) {
+      s = s.substring(0, s.length - 2);
+    } else if (s.endsWith('s') && !s.endsWith('ss') && s.length > 3) {
+      s = s.substring(0, s.length - 1);
+    }
+    return s;
+  }
 
   int _loadGeneration = 0;
   bool _isSeeding = false;
@@ -128,9 +187,18 @@ class PantryProvider extends ChangeNotifier {
           _isSeeding = false;
         }
       } else {
+        final fetched = rows.map((r) => PantryItem.fromMap(r)).toList();
+        final fetchedIds = fetched.map((e) => e.id).toSet();
+        final pendingLocal = _items
+            .where((item) =>
+                _locallyAddedIds.contains(item.id) &&
+                !fetchedIds.contains(item.id))
+            .toList();
+
         _items
           ..clear()
-          ..addAll(rows.map((r) => PantryItem.fromMap(r)));
+          ..addAll(fetched)
+          ..addAll(pendingLocal);
       }
 
       final equip = await DbHelper.instance.fetchUserEquipment();
@@ -154,7 +222,6 @@ class PantryProvider extends ChangeNotifier {
     }
   }
 
-  /// Adds a new food item (syncs to Supabase + updates UI immediately)
   Future<void> addNewItem({
     required String name,
     required FoodCategory category,
@@ -164,30 +231,54 @@ class PantryProvider extends ChangeNotifier {
     required StorageLocation storageLocation,
   }) async {
     final generation = _loadGeneration;
+    final cleanName = name.trim();
+    final expiryStr = expiryDate?.toIso8601String().split('T').first;
 
     if (_isSupabaseReady && Supabase.instance.client.auth.currentUser != null) {
-      final inserted = await DbHelper.instance.insertPantryItem({
-        'name': name,
-        'category': category.name,
-        'quantity': quantity,
-        'unit': unit,
-        'expiry_date': expiryDate?.toIso8601String().split('T').first,
-        'storage_location': storageLocation.name,
-      });
-      if (generation != _loadGeneration) return;
-      _items.add(PantryItem.fromMap(inserted));
+      try {
+        final inserted = await DbHelper.instance.insertPantryItem({
+          'name': cleanName,
+          'category': category.name,
+          'quantity': quantity,
+          'unit': unit,
+          'expiry_date': expiryStr,
+          'storage_location': storageLocation.name,
+        });
+        if (generation != _loadGeneration) return;
+        final item = PantryItem.fromMap(inserted);
+        _locallyAddedIds.add(item.id);
+        _items.add(item);
+      } catch (_) {
+        if (generation != _loadGeneration) return;
+        final rows = await DbHelper.instance.fetchPantryItems();
+        if (generation != _loadGeneration) return;
+        final matches = rows.map((r) => PantryItem.fromMap(r)).where((r) =>
+            r.name.trim().toLowerCase() == cleanName.toLowerCase() &&
+            r.quantity == quantity &&
+            r.unit == unit);
+        if (matches.isNotEmpty) {
+          final existing = matches.last;
+          if (!_items.any((i) => i.id == existing.id)) {
+            _locallyAddedIds.add(existing.id);
+            _items.add(existing);
+            notifyListeners();
+          }
+          return;
+        }
+        rethrow;
+      }
     } else {
-      _items.add(
-        PantryItem(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          name: name,
-          category: category,
-          quantity: quantity,
-          unit: unit,
-          expiryDate: expiryDate,
-          storageLocation: storageLocation,
-        ),
+      final localItem = PantryItem(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        name: cleanName,
+        category: category,
+        quantity: quantity,
+        unit: unit,
+        expiryDate: expiryDate,
+        storageLocation: storageLocation,
       );
+      _locallyAddedIds.add(localItem.id);
+      _items.add(localItem);
     }
     notifyListeners();
   }
@@ -228,8 +319,12 @@ class PantryProvider extends ChangeNotifier {
   }
 
   PantryItem? get urgentItem {
-    final thisWeek = expiringThisWeek;
-    return thisWeek.isNotEmpty ? thisWeek.first : null;
+    final urgent = _items.where((item) {
+      final days = item.daysUntilExpiry;
+      return days != null && days >= 0 && days <= 3;
+    }).toList()
+      ..sort((a, b) => a.daysUntilExpiry!.compareTo(b.daysUntilExpiry!));
+    return urgent.isNotEmpty ? urgent.first : null;
   }
 
   String getAmigoShelfLifeTip(String foodName, StorageLocation storage) {

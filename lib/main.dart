@@ -7,6 +7,7 @@ import 'providers/auth_provider.dart';
 import 'providers/pantry_provider.dart';
 import 'screens/splash_screen.dart';
 import 'utils/theme.dart';
+import 'screens/amigo_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -47,6 +48,9 @@ class DormigoApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
       home: const SplashScreen(),
+      navigatorKey: amigoNavigatorKey,
+      navigatorObservers: [amigoRouteObserver],
+      builder: (context, child) => AmigoOverlay(child: child!),
     );
   }
 }
