@@ -74,7 +74,6 @@ void showAmigoSheet([BuildContext? context]) {
   );
 }
 
-
 class AmigoOverlay extends StatelessWidget {
   const AmigoOverlay({super.key, required this.child});
 
@@ -126,10 +125,19 @@ class _AmigoFab extends StatelessWidget {
   }
 }
 
+String _normalizeIngredient(String raw) {
+  var s = raw.trim().toLowerCase();
+  if (s.endsWith('es') && s.length > 4) {
+    s = s.substring(0, s.length - 2);
+  } else if (s.endsWith('s') && !s.endsWith('ss') && s.length > 3) {
+    s = s.substring(0, s.length - 1);
+  }
+  return s;
+}
 
 // SHARED CHAT STATE (same conversation in small panel + full screen)
 class _AmigoChat extends ChangeNotifier {
-  final List<Map<String, dynamic>> messages = [];
+  final List messages = [];
   bool typing = false;
   String timeLabel = '';
   int _session = 0;
@@ -162,19 +170,22 @@ class _AmigoChat extends ChangeNotifier {
     typing = true;
     notifyListeners();
 
-    // Wait (max 5 s) for the first Supabase load, THEN read the pantry.
-    await provider.whenLoaded
-        .timeout(const Duration(seconds: 5), onTimeout: () {});
+    // Comment 5: Wait for the initial Supabase load to finish without a 5s cutoff
+    // so slow networks never read a stale/empty pantry.
+    await provider.whenLoaded;
     if (session != _session) return;
 
-    final pantryNames =
-        provider.items.map((e) => e.name.toLowerCase()).toList();
+    // Comments 8 & 9: Only include unexpired pantry items normalized for exact matching.
+    final validNormalizedPantry = provider.items
+        .where((e) => e.daysUntilExpiry == null || e.daysUntilExpiry! >= 0)
+        .map((e) => _normalizeIngredient(e.name))
+        .toSet();
     final equip = provider.selectedEquipment;
 
     await Future<void>.delayed(const Duration(milliseconds: 700));
     if (session != _session) return;
 
-    messages.add(_buildAmigoReply(trimmed, pantryNames, equip));
+    messages.add(_buildAmigoReply(trimmed, validNormalizedPantry, equip));
     typing = false;
     notifyListeners();
   }
@@ -191,8 +202,8 @@ String _formatTime(DateTime d) {
 
 Map<String, dynamic> _buildAmigoReply(
   String query,
-  List pantryNames,
-  Set selectedEquip,
+  Set<String> validNormalizedPantry,
+  Set<String> selectedEquip,
 ) {
   final q = query.toLowerCase();
 
@@ -241,8 +252,9 @@ Map<String, dynamic> _buildAmigoReply(
       final equipOk = selectedEquip.isEmpty ||
           reqEquip.any((e) => selectedEquip.contains(e));
       final ings = List.from(r['ingredients'] ?? []);
-      final usesPantry = ings.any((i) =>
-          pantryNames.any((p) => p.contains(i.toString().toLowerCase())));
+      final usesPantry = ings.any(
+        (i) => validNormalizedPantry.contains(_normalizeIngredient(i.toString())),
+      );
       if (equipOk && usesPantry) {
         pickedRecipe = r;
         break;
@@ -295,7 +307,7 @@ class _AmigoPanelState extends State<_AmigoPanel> {
   String? _toastText;
   int _toastId = 0;
 
-  final List<Map<String, dynamic>> _starterPrompts = const [
+  final List _starterPrompts = const [
     {
       'icon': Icons.restaurant_menu_rounded,
       'text': 'What can I cook tonight with what I have?',
@@ -419,10 +431,16 @@ class _AmigoPanelState extends State<_AmigoPanel> {
     final items = provider.items;
     final equip = provider.selectedEquipment;
 
-    // Most urgent expiring item for the greeting card (null = nothing urgent)
+    // Comment 11: Distinguish already-expired items from urgent (0-3 day) items.
+    final expired = provider.expiredItems;
     final urgent = provider.urgentItem;
-    final String? urgentName = urgent?.name.toLowerCase();
-    final int urgentDays = urgent?.daysUntilExpiry ?? 0;
+    final String? alertName = urgent?.name.toLowerCase() ??
+        (expired.isNotEmpty ? expired.first.name.toLowerCase() : null);
+    final int alertDays = urgent != null
+        ? (urgent.daysUntilExpiry ?? 0)
+        : (expired.isNotEmpty ? (expired.first.daysUntilExpiry ?? -1) : 0);
+    final bool isAlreadyExpired = urgent == null && expired.isNotEmpty;
+
     final equipSummary =
         equip.isEmpty ? 'Rice cooker · Kettle' : equip.join(' · ');
 
@@ -438,11 +456,12 @@ class _AmigoPanelState extends State<_AmigoPanel> {
               _buildCompactHeader(isChatMode, items.length),
               Expanded(
                 child: isChatMode
-                    ? _buildChatBody(urgentName, urgentDays, showQuick: true)
+                    ? _buildChatBody(alertName, alertDays, showQuick: true)
                     : _buildCompactStart(
                         itemCount: items.length,
-                        urgentName: urgentName,
-                        urgentDays: urgentDays,
+                        urgentName: alertName,
+                        urgentDays: alertDays,
+                        isExpired: isAlreadyExpired,
                         equipSummary: equipSummary,
                       ),
               ),
@@ -454,11 +473,12 @@ class _AmigoPanelState extends State<_AmigoPanel> {
             children: [
               Expanded(
                 child: isChatMode
-                    ? _buildFullChat(items.length, urgentName, urgentDays)
+                    ? _buildFullChat(items.length, alertName, alertDays)
                     : _buildFullStart(
                         itemCount: items.length,
-                        urgentName: urgentName,
-                        urgentDays: urgentDays,
+                        urgentName: alertName,
+                        urgentDays: alertDays,
+                        isExpired: isAlreadyExpired,
                         equipSummary: equipSummary,
                       ),
               ),
@@ -594,6 +614,7 @@ class _AmigoPanelState extends State<_AmigoPanel> {
     required int itemCount,
     required String? urgentName,
     required int urgentDays,
+    required bool isExpired,
     required String equipSummary,
   }) {
     return ListView(
@@ -618,7 +639,12 @@ class _AmigoPanelState extends State<_AmigoPanel> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _greetingText(urgentName, urgentDays, fontSize: 13),
+                    _greetingText(
+                      urgentName,
+                      urgentDays,
+                      isExpired: isExpired,
+                      fontSize: 13,
+                    ),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 6,
@@ -658,6 +684,7 @@ class _AmigoPanelState extends State<_AmigoPanel> {
     required int itemCount,
     required String? urgentName,
     required int urgentDays,
+    required bool isExpired,
     required String equipSummary,
   }) {
     return ListView(
@@ -751,7 +778,12 @@ class _AmigoPanelState extends State<_AmigoPanel> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _greetingText(urgentName, urgentDays, fontSize: 14.5),
+                _greetingText(
+                  urgentName,
+                  urgentDays,
+                  isExpired: isExpired,
+                  fontSize: 14.5,
+                ),
                 const SizedBox(height: 12),
                 Wrap(
                   spacing: 8,
@@ -1003,16 +1035,15 @@ class _AmigoPanelState extends State<_AmigoPanel> {
     String? urgentName,
     int urgentDays,
   ) {
-    // Only show the "uses <item>" chip when the recipe really contains the
-    // expiring item.
+    // Only show the "uses <item>" chip when the recipe contains an unexpired urgent item.
     final name = urgentName;
     final r = recipe;
     final usesUrgent = r != null &&
         name != null &&
-        List.from(r['ingredients'] ?? []).any((i) {
-          final s = i.toString().toLowerCase();
-          return s.isNotEmpty && (s.contains(name) || name.contains(s));
-        });
+        urgentDays >= 0 &&
+        List.from(r['ingredients'] ?? []).any(
+          (i) => _normalizeIngredient(i.toString()) == _normalizeIngredient(name),
+        );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1118,7 +1149,7 @@ class _AmigoPanelState extends State<_AmigoPanel> {
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
-                                  urgentDays <= 0
+                                  urgentDays == 0
                                       ? 'Uses $name · expires today'
                                       : 'Uses $name · ${urgentDays}d left',
                                   style: const TextStyle(
@@ -1270,11 +1301,15 @@ class _AmigoPanelState extends State<_AmigoPanel> {
     );
   }
 
-  // Small widgets
-  Widget _greetingText(String? urgentName, int urgentDays,
-      {required double fontSize}) {
+  // Small widgets — Comment 11: Handle expired items separately from expiring items.
+  Widget _greetingText(
+    String? urgentName,
+    int urgentDays, {
+    required bool isExpired,
+    required double fontSize,
+  }) {
     final name = urgentName;
-    final when = urgentDays <= 0
+    final when = urgentDays == 0
         ? 'today'
         : 'in $urgentDays ${urgentDays == 1 ? 'day' : 'days'}';
 
@@ -1295,7 +1330,17 @@ class _AmigoPanelState extends State<_AmigoPanel> {
               text: 'I can see your pantry. Nothing is expiring soon, '
                   'so what would you like to cook?',
             )
-          else ...[
+          else if (isExpired || urgentDays < 0) ...[
+            const TextSpan(text: 'I can see your pantry. Your '),
+            TextSpan(
+              text: '$name already expired',
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+            const TextSpan(
+              text: " — check if it's still safe before using it, "
+                  'or let’s pick something else to cook.',
+            ),
+          ] else ...[
             const TextSpan(text: 'I can see your pantry. Your '),
             TextSpan(
               text: '$name expire $when',

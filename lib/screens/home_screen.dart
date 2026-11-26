@@ -33,10 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
   /// same saved state.
   static const _homeRecipeTitle = 'Creamy Egg Fried Rice';
 
-  // ---------------------------------------------------------------------------
-  // Notifications (built from the real pantry)
-  // ---------------------------------------------------------------------------
-
+  // Notifications
   List<_NotificationItem> _buildNotifications(PantryProvider pantry) {
     final alerts = <PantryItem>[
       ...pantry.expiredItems,
@@ -53,9 +50,13 @@ class _HomeScreenState extends State<HomeScreen> {
     return [
       for (final item in alerts)
         _NotificationItem(
-          icon: Icons.warning_amber_rounded,
+          icon: (item.daysUntilExpiry ?? 0) < 0
+              ? Icons.error_outline_rounded
+              : Icons.warning_amber_rounded,
           title: titleFor(item),
-          subtitle: 'Use it first!',
+          subtitle: (item.daysUntilExpiry ?? 0) < 0
+              ? 'Expired — check safety or discard'
+              : 'Use it first!',
         ),
       const _NotificationItem(
         icon: Icons.soup_kitchen_outlined,
@@ -164,7 +165,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     widget.onAddFood();
                   },
                 ),
-                
                 _AddOption(
                   icon: Icons.edit_outlined,
                   title: 'Add manually',
@@ -180,24 +180,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     );
                     if (!mounted || added == null) return;
 
-                    
-                    final category = FoodCategory.values.firstWhere(
-                      (c) => c.name == 'other',
-                      orElse: () => FoodCategory.values.first,
-                    );
-                    final storage = StorageLocation.values.firstWhere(
-                      (s) => s.name == 'pantry' || s.name == 'shelf',
-                      orElse: () => StorageLocation.values.first,
-                    );
-
                     try {
                       await pantry.addNewItem(
                         name: added.name,
-                        category: category,
-                        quantity: double.tryParse(added.quantity) ?? 1,
-                        unit: 'pcs',
+                        category: added.category,
+                        quantity: added.quantity,
+                        unit: added.unit,
                         expiryDate: added.expiry,
-                        storageLocation: storage,
+                        storageLocation: added.storageLocation,
                       );
                       if (!mounted) return;
                       ScaffoldMessenger.of(context)
@@ -413,7 +403,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   /// Red "Use First!" card. Only shown when something in the pantry is
-  /// actually about to expire.
+  /// actually about to expire (0–3 days).
   Widget _buildUseFirst() {
     final urgent = context.watch<PantryProvider>().urgentItem;
     if (urgent == null) return const SizedBox.shrink();
@@ -609,11 +599,17 @@ class _FoodEntry {
   const _FoodEntry({
     required this.name,
     required this.quantity,
+    required this.unit,
+    required this.category,
+    required this.storageLocation,
     required this.expiry,
   });
 
   final String name;
-  final String quantity;
+  final double quantity;
+  final String unit;
+  final FoodCategory category;
+  final StorageLocation storageLocation;
   final DateTime expiry;
 }
 
@@ -632,6 +628,11 @@ class _ManualAddFoodScreenState extends State<_ManualAddFoodScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _quantityController = TextEditingController(text: '1');
+
+  static const _units = ['pcs', 'g', 'kg', 'ml', 'L', 'pack', 'can'];
+  String _unit = 'pcs';
+  FoodCategory _category = FoodCategory.values.first;
+  StorageLocation _storage = StorageLocation.values.first;
   DateTime? _expiry;
 
   @override
@@ -639,6 +640,11 @@ class _ManualAddFoodScreenState extends State<_ManualAddFoodScreen> {
     _nameController.dispose();
     _quantityController.dispose();
     super.dispose();
+  }
+
+  String _labelize(String enumName) {
+    if (enumName.isEmpty) return enumName;
+    return enumName[0].toUpperCase() + enumName.substring(1);
   }
 
   Future<void> _pickDate() async {
@@ -654,6 +660,13 @@ class _ManualAddFoodScreenState extends State<_ManualAddFoodScreen> {
 
   void _save() {
     if (!_formKey.currentState!.validate()) return;
+    final parsedQty = double.tryParse(_quantityController.text.trim());
+    if (parsedQty == null || parsedQty <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid positive quantity')),
+      );
+      return;
+    }
     if (_expiry == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please choose an expiry date')),
@@ -664,7 +677,10 @@ class _ManualAddFoodScreenState extends State<_ManualAddFoodScreen> {
       context,
       _FoodEntry(
         name: _nameController.text.trim(),
-        quantity: _quantityController.text.trim(),
+        quantity: parsedQty,
+        unit: _unit,
+        category: _category,
+        storageLocation: _storage,
         expiry: _expiry!,
       ),
     );
@@ -696,16 +712,82 @@ class _ManualAddFoodScreenState extends State<_ManualAddFoodScreen> {
                     : null,
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _quantityController,
-                keyboardType: TextInputType.number,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: TextFormField(
+                      controller: _quantityController,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(
+                        labelText: 'Quantity',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return 'Enter a quantity';
+                        }
+                        final parsed = double.tryParse(v.trim());
+                        if (parsed == null || parsed <= 0) {
+                          return 'Invalid number';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      initialValue: _unit,
+                      decoration: const InputDecoration(
+                        labelText: 'Unit',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: _units
+                          .map((u) => DropdownMenuItem(value: u, child: Text(u)))
+                          .toList(),
+                      onChanged: (v) {
+                        if (v != null) setState(() => _unit = v);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<FoodCategory>(
+                initialValue: _category,
                 decoration: const InputDecoration(
-                  labelText: 'Quantity',
+                  labelText: 'Category',
                   border: OutlineInputBorder(),
                 ),
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Please enter a quantity'
-                    : null,
+                items: FoodCategory.values
+                    .map((c) => DropdownMenuItem(
+                          value: c,
+                          child: Text(_labelize(c.name)),
+                        ))
+                    .toList(),
+                onChanged: (v) {
+                  if (v != null) setState(() => _category = v);
+                },
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<StorageLocation>(
+                initialValue: _storage,
+                decoration: const InputDecoration(
+                  labelText: 'Storage location',
+                  border: OutlineInputBorder(),
+                ),
+                items: StorageLocation.values
+                    .map((s) => DropdownMenuItem(
+                          value: s,
+                          child: Text(_labelize(s.name)),
+                        ))
+                    .toList(),
+                onChanged: (v) {
+                  if (v != null) setState(() => _storage = v);
+                },
               ),
               const SizedBox(height: 16),
               InkWell(

@@ -9,8 +9,9 @@ import '../database/seed_data.dart';
 class PantryProvider extends ChangeNotifier {
   final List<PantryItem> _items = [];
   final Set<String> _selectedEquipment = {'Rice Cooker', 'Kettle'};
+  final Set<String> _locallyAddedIds = {};
 
-  
+  Future<void>? _inFlightLoad;
   bool _loadStarted = false;
   final Completer<void> _loaded = Completer<void>();
 
@@ -41,15 +42,28 @@ class PantryProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Comments 8 & 9: Match normalized names exactly (not substrings) and exclude expired items.
   List<String> missingIngredients(List ingredients) {
-    final have = _items.map((e) => e.name.toLowerCase()).toList();
+    final validNormalized = _items
+        .where((e) => e.daysUntilExpiry == null || e.daysUntilExpiry! >= 0)
+        .map((e) => _normalizeIngredient(e.name))
+        .toSet();
+
     return [
       for (final ing in ingredients)
-        if (!have.any((p) =>
-            p.contains(ing.toString().toLowerCase()) ||
-            ing.toString().toLowerCase().contains(p)))
+        if (!validNormalized.contains(_normalizeIngredient(ing.toString())))
           ing.toString(),
     ];
+  }
+
+  String _normalizeIngredient(String raw) {
+    var s = raw.trim().toLowerCase();
+    if (s.endsWith('es') && s.length > 4) {
+      s = s.substring(0, s.length - 2);
+    } else if (s.endsWith('s') && !s.endsWith('ss') && s.length > 3) {
+      s = s.substring(0, s.length - 1);
+    }
+    return s;
   }
 
   static const List<String> allEquipment = [
@@ -73,15 +87,13 @@ class PantryProvider extends ChangeNotifier {
     }
   }
 
-  /// Loads saved pantry items and equipment from Supabase
-  /// (or seeds starter data if empty). Safe to call more than once.
-  Future<void> loadFromSupabase() async {
+  /// Comment 3: Serialize overlapping loads by sharing the active Future.
+  Future<void> loadFromSupabase() {
     _loadStarted = true;
-    try {
-      await _loadFromSupabase();
-    } finally {
+    return _inFlightLoad ??= _loadFromSupabase().whenComplete(() {
+      _inFlightLoad = null;
       if (!_loaded.isCompleted) _loaded.complete();
-    }
+    });
   }
 
   Future<void> _loadFromSupabase() async {
@@ -95,7 +107,7 @@ class PantryProvider extends ChangeNotifier {
 
     try {
       final rows = await DbHelper.instance.fetchPantryItems();
-      if (rows.isEmpty) {
+      if (rows.isEmpty && _items.isEmpty) {
         for (final seed in SeedData.starterPantryItems()) {
           final inserted = await DbHelper.instance.insertPantryItem({
             'name': seed.name,
@@ -108,9 +120,19 @@ class PantryProvider extends ChangeNotifier {
           _items.add(PantryItem.fromMap(inserted));
         }
       } else {
+        // Comment 1: Keep items added locally while the initial fetch was in flight.
+        final fetched = rows.map((r) => PantryItem.fromMap(r)).toList();
+        final fetchedIds = fetched.map((e) => e.id).toSet();
+        final pendingLocal = _items
+            .where((item) =>
+                _locallyAddedIds.contains(item.id) &&
+                !fetchedIds.contains(item.id))
+            .toList();
+
         _items
           ..clear()
-          ..addAll(rows.map((r) => PantryItem.fromMap(r)));
+          ..addAll(fetched)
+          ..addAll(pendingLocal);
       }
 
       final equip = await DbHelper.instance.fetchUserEquipment();
@@ -127,6 +149,7 @@ class PantryProvider extends ChangeNotifier {
     }
   }
 
+  /// Comment 4: Reconcile on timeout/error so retrying never creates duplicate rows.
   Future<void> addNewItem({
     required String name,
     required FoodCategory category,
@@ -135,29 +158,54 @@ class PantryProvider extends ChangeNotifier {
     DateTime? expiryDate,
     required StorageLocation storageLocation,
   }) async {
+    final cleanName = name.trim();
+    final expiryStr = expiryDate?.toIso8601String().split('T').first;
+
     if (_isSupabaseReady) {
-      final inserted = await DbHelper.instance.insertPantryItem({
-        'name': name,
-        'category': category.name,
-        'quantity': quantity,
-        'unit': unit,
-        'expiry_date': expiryDate?.toIso8601String().split('T').first,
-        'storage_location': storageLocation.name,
-      });
-      _items.add(PantryItem.fromMap(inserted));
-    } else {
-      _items.add(
-        PantryItem(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          name: name,
-          category: category,
-          quantity: quantity,
-          unit: unit,
-          expiryDate: expiryDate,
-          storageLocation: storageLocation,
-        ),
-      );
+      try {
+        final inserted = await DbHelper.instance.insertPantryItem({
+          'name': cleanName,
+          'category': category.name,
+          'quantity': quantity,
+          'unit': unit,
+          'expiry_date': expiryStr,
+          'storage_location': storageLocation.name,
+        });
+        final item = PantryItem.fromMap(inserted);
+        _locallyAddedIds.add(item.id);
+        _items.add(item);
+        notifyListeners();
+        return;
+      } catch (_) {
+        final rows = await DbHelper.instance.fetchPantryItems();
+        final matches = rows.map((r) => PantryItem.fromMap(r)).where((r) =>
+            r.name.trim().toLowerCase() == cleanName.toLowerCase() &&
+            r.quantity == quantity &&
+            r.unit == unit);
+        if (matches.isNotEmpty) {
+          final existing = matches.last;
+          if (!_items.any((i) => i.id == existing.id)) {
+            _locallyAddedIds.add(existing.id);
+            _items.add(existing);
+            notifyListeners();
+          }
+          return;
+        }
+        rethrow;
+      }
     }
+
+    final item = PantryItem(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: cleanName,
+      category: category,
+      quantity: quantity,
+      unit: unit,
+      expiryDate: expiryDate,
+      storageLocation: storageLocation,
+    );
+    _locallyAddedIds.add(item.id);
+    _items.add(item);
     notifyListeners();
   }
 
@@ -194,9 +242,14 @@ class PantryProvider extends ChangeNotifier {
     }).toList();
   }
 
+  /// Comment 10: Only items expiring within 0–3 days count as urgent (not 6–7 day fresh items).
   PantryItem? get urgentItem {
-    final thisWeek = expiringThisWeek;
-    return thisWeek.isNotEmpty ? thisWeek.first : null;
+    final urgent = _items.where((item) {
+      final days = item.daysUntilExpiry;
+      return days != null && days >= 0 && days <= 3;
+    }).toList()
+      ..sort((a, b) => a.daysUntilExpiry!.compareTo(b.daysUntilExpiry!));
+    return urgent.isNotEmpty ? urgent.first : null;
   }
 
   String getAmigoShelfLifeTip(String foodName, StorageLocation storage) {
