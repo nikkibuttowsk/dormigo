@@ -26,16 +26,6 @@ Future<void> main() async {
           const String.fromEnvironment('SUPABASE_ANON_KEY'))
       .trim();
 
-  if (url.isNotEmpty &&
-      anonKey.isNotEmpty &&
-      url.startsWith('http')) {
-    try {
-      await Supabase.initialize(url: url, anonKey: anonKey);
-    } catch (e) {
-      debugPrint('Supabase init skipped: $e');
-    }
-  }
-
   runApp(
     MultiProvider(
       providers: [
