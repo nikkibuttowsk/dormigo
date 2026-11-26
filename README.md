@@ -58,7 +58,7 @@ samples, guidance on mobile development, and a full API reference.
 
 ---
 
-## 📌 Project Overview
+## Project Overview
 
 DORMIGO is a Flutter-based mobile application developed using the Dart programming language and AI integration. It was designed to address the challenges faced by dormitory students in managing their food supplies due to limited storage, busy academic schedules, and restricted cooking equipment.
 
@@ -80,7 +80,7 @@ The system covers the main processes of food management: from adding ingredients
 
 ---
 
-## 🎯 Project Objectives
+## Project Objectives
 
 **General Objectives**
 
@@ -102,7 +102,7 @@ Specifically, the project aims to:
 
 ---
 
-## ✨ Key Features
+## Key Features
 
 **🥫 1. Smart Digital Pantry**
 
@@ -174,7 +174,7 @@ Allows users to manage their personal information and application preferences.
 
 ---
 
-## 🛠️ Technology Stack
+## Technology Stack
 
 DORMIGO utilizes mobile development technologies, backend services, database management tools, and AI integration to support its functionalities.
 
@@ -194,7 +194,7 @@ DORMIGO utilizes mobile development technologies, backend services, database man
 
 ---
 
-## 🤖 AI Integration
+## AI Integration
 
 Artificial Intelligence is integrated into two major functionalities of DORMIGO to improve food inventory management and meal discovery.
 
@@ -214,7 +214,7 @@ Through these AI-powered functionalities, DORMIGO aims to provide a more conveni
 
 ---
 
-## ⚙️ Installation and Setup
+## Installation and Setup
 
 Follow the instructions below to set up and run the DORMIGO application in a local development environment.
 
@@ -286,7 +286,7 @@ build/app/outputs/flutter-apk/app-release.apk
 
 ---
 
-## 📌 Project Scope and Limitations
+## Project Scope and Limitations
 
 DORMIGO focuses on seven major functionalities:
 
@@ -328,7 +328,7 @@ Platform Compatibility: The application is primarily developed for Android devic
 
 ---
 
-## 🚀 Future Enhancements
+## Future Enhancements
 
 Future versions of DORMIGO may include additional functionalities to improve food management, user convenience, and overall application performance.
 
@@ -350,7 +350,7 @@ Enhanced Food Waste Analytics – Provide more detailed reports about food consu
 
 ---
 
-## 👨‍💻 Developers
+## Developers
 
 DORMIGO was developed by a team of students as part of an academic software development project.
 
@@ -412,7 +412,7 @@ SOFTWARE.
 
 ---
 
-## 💚 Acknowledgement
+## Acknowledgement
 
 We would like to express our sincere gratitude to our project adviser for the continuous guidance, valuable insights, encouragement, and support throughout the development of DORMIGO.
 
