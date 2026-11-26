@@ -324,34 +324,34 @@ class AuthProvider extends ChangeNotifier {
 
   /// Uploads avatar to Supabase Storage ('avatars' bucket) so it works across devices.
   Future<bool> updateAvatar(String? localFilePath) async {
-    final prevAvatar = _avatarUrl;
     final client = _client;
+    if (client == null || !isAuthenticated || _user == null) {
+      _errorMessage = 'Sign in to customize your profile photo.';
+      notifyListeners();
+      return false;
+    }
+
+    final prevAvatar = _avatarUrl;
 
     if (localFilePath == null) {
       _avatarUrl = null;
       notifyListeners();
 
-      if (client != null && isAuthenticated) {
-        try {
-          await client.auth.updateUser(
-            UserAttributes(data: {'avatar_url': null}),
-          );
-        } catch (_) {
-          _avatarUrl = prevAvatar;
-          notifyListeners();
-          return false;
-        }
+      try {
+        await client.auth.updateUser(
+          UserAttributes(data: {'avatar_url': null}),
+        );
+        return true;
+      } catch (_) {
+        _avatarUrl = prevAvatar;
+        notifyListeners();
+        return false;
       }
-      return true;
     }
 
     // Optimistically show local preview immediately
     _avatarUrl = localFilePath;
     notifyListeners();
-
-    if (client == null || !isAuthenticated || _user == null) {
-      return true;
-    }
 
     try {
       final file = File(localFilePath);
@@ -379,21 +379,15 @@ class AuthProvider extends ChangeNotifier {
       );
       return true;
     } on StorageException catch (e) {
-      debugPrint('Avatar upload StorageException: ${e.message} (status: ${e.statusCode})');
+      debugPrint('Avatar upload StorageException: ${e.message}');
       _avatarUrl = prevAvatar;
       _errorMessage = 'Storage error: ${e.message}';
       notifyListeners();
       return false;
-    } on AuthException catch (e) {
-      debugPrint('Avatar metadata AuthException: ${e.message}');
+    } catch (e) {
+      debugPrint('Avatar upload error: $e');
       _avatarUrl = prevAvatar;
-      _errorMessage = 'Profile error: ${e.message}';
-      notifyListeners();
-      return false;
-    } catch (e, st) {
-      debugPrint('Avatar upload unexpected error: $e\n$st');
-      _avatarUrl = prevAvatar;
-      _errorMessage = 'Upload failed: $e';
+      _errorMessage = 'Failed to upload profile photo.';
       notifyListeners();
       return false;
     }

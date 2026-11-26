@@ -29,6 +29,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _pickAvatarSheet(AuthProvider auth) async {
+  if (auth.isGuest) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: const Text('Sign in to upload a profile photo.'),
+          action: SnackBarAction(
+            label: 'Sign In',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const LoginScreen()),
+            ),
+          ),
+        ),
+      );
+    return;
+  }
     final picker = ImagePicker();
 
     Future<void> pick(BuildContext sheetCtx, ImageSource source) async {
