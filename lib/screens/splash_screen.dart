@@ -1,6 +1,9 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:provider/provider.dart';
 
+import '../providers/auth_provider.dart';
 import '../utils/theme.dart';
+import 'main_shell.dart';
 import 'onboarding_screen.dart';
 
 /// Figma screen 01: logo, mascot and a "Get Started" button.
@@ -12,7 +15,6 @@ class SplashScreen extends StatelessWidget {
     return Scaffold(
       body: Stack(
         children: [
-          // Decorative circles at the bottom (a Stack lets widgets overlap).
           Positioned(
             left: -100,
             bottom: -120,
@@ -43,7 +45,6 @@ class SplashScreen extends StatelessWidget {
               child: Column(
                 children: [
                   const SizedBox(height: 48),
-                  // Logo text with a leaf icon at the top-right corner.
                   Stack(
                     clipBehavior: Clip.none,
                     children: [
@@ -79,7 +80,6 @@ class SplashScreen extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
-                  // Placeholder mascot. Later: Image.asset('assets/mascot.png')
                   Container(
                     width: 200,
                     height: 200,
@@ -97,10 +97,14 @@ class SplashScreen extends StatelessWidget {
                       foregroundColor: AppColors.green,
                     ),
                     onPressed: () {
+                      final isAuthenticated =
+                          context.read<AuthProvider>().isAuthenticated;
                       Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const OnboardingScreen(),
+                          builder: (_) => isAuthenticated
+                              ? const MainShell()
+                              : const OnboardingScreen(),
                         ),
                       );
                     },

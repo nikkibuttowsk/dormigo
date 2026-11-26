@@ -30,7 +30,6 @@ class PantryProvider extends ChangeNotifier {
   }
 
   /// Loads saved pantry items and equipment from Supabase
-  /// Loads saved pantry items and equipment from Supabase (or seeds starter data if empty)
   Future<void> loadFromSupabase() async {
     if (!_isSupabaseReady) {
       if (_items.isEmpty) {

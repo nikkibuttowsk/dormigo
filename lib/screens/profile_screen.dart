@@ -1,9 +1,13 @@
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
+
+import '../providers/auth_provider.dart';
 import '../providers/pantry_provider.dart';
 import '../utils/theme.dart';
 import 'dorm_equipment_screen.dart';
-import 'onboarding_screen.dart';
+import 'login_screen.dart';
 import 'pantry_screen.dart';
 import 'recipes_screen.dart';
 
@@ -15,71 +19,214 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  String _displayName = 'Chloe Yzabelle';
-  String _handle = '@chloegonzaga';
-  String _preferences = 'Budget · No pork';
-  bool _notificationsOn = true;
+  Future<void> _pickAvatarSheet(AuthProvider auth) async {
+    final picker = ImagePicker();
 
-  void _editProfileDialog() {
-    final nameCtrl = TextEditingController(text: _displayName);
-    final handleCtrl = TextEditingController(text: _handle);
+    Future<void> pick(BuildContext sheetCtx, ImageSource source) async {
+      Navigator.pop(sheetCtx);
+      final file = await picker.pickImage(
+        source: source,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 85,
+      );
+      if (file != null) {
+        await auth.updateAvatar(file.path);
+      }
+    }
 
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Edit Profile'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameCtrl,
-              decoration: const InputDecoration(labelText: 'Display Name'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: handleCtrl,
-              decoration: const InputDecoration(labelText: 'Username'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(minimumSize: const Size(90, 40)),
-            onPressed: () {
-              setState(() {
-                if (nameCtrl.text.trim().isNotEmpty) {
-                  _displayName = nameCtrl.text.trim();
-                }
-                if (handleCtrl.text.trim().isNotEmpty) {
-                  _handle = handleCtrl.text.trim();
-                }
-              });
-              Navigator.pop(context);
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _editPreferencesSheet() {
-    final options = [
-      'Budget · No pork',
-      'Quick meals · High protein',
-      'Vegetarian friendly',
-      'No restrictions',
-    ];
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (_) => Padding(
+      builder: (sheetCtx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Profile Photo',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textDark,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                leading: const Icon(
+                  Icons.photo_library_outlined,
+                  color: AppColors.green,
+                ),
+                title: const Text('Choose from Gallery'),
+                onTap: () => pick(sheetCtx, ImageSource.gallery),
+              ),
+              ListTile(
+                leading: const Icon(
+                  Icons.camera_alt_outlined,
+                  color: AppColors.green,
+                ),
+                title: const Text('Take a Photo'),
+                onTap: () => pick(sheetCtx, ImageSource.camera),
+              ),
+              if (auth.avatarPath != null)
+                ListTile(
+                  leading: const Icon(
+                    Icons.delete_outline,
+                    color: Color(0xFF9B2C2C),
+                  ),
+                  title: const Text(
+                    'Remove Photo',
+                    style: TextStyle(color: Color(0xFF9B2C2C)),
+                  ),
+                  onTap: () async {
+                    Navigator.pop(sheetCtx);
+                    await auth.updateAvatar(null);
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _editProfileSheet(AuthProvider auth) {
+    final nameCtrl = TextEditingController(text: auth.displayName);
+    final handleCtrl = TextEditingController(text: auth.handle);
+    final dormCtrl = TextEditingController(text: auth.dormInfo);
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) => Padding(
+        padding: EdgeInsets.fromLTRB(
+          24,
+          24,
+          24,
+          MediaQuery.of(sheetCtx).viewInsets.bottom + 24,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Edit Profile',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textDark,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: nameCtrl,
+              textCapitalization: TextCapitalization.words,
+              decoration: InputDecoration(
+                labelText: 'Display Name',
+                prefixIcon: const Icon(
+                  Icons.person_outline,
+                  color: AppColors.green,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: handleCtrl,
+              decoration: InputDecoration(
+                labelText: 'Username',
+                prefixIcon: const Icon(
+                  Icons.alternate_email,
+                  color: AppColors.green,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: dormCtrl,
+              decoration: InputDecoration(
+                labelText: 'Dorm / Room Info',
+                hintText: 'e.g. Dorm Bldg A · Room 204',
+                prefixIcon: const Icon(
+                  Icons.apartment_rounded,
+                  color: AppColors.green,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(sheetCtx),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(48),
+                      shape: const StadiumBorder(),
+                    ),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(48),
+                    ),
+                    onPressed: () async {
+                      await auth.updateProfile(
+                        displayName: nameCtrl.text,
+                        handle: handleCtrl.text,
+                        dormInfo: dormCtrl.text,
+                      );
+                      if (sheetCtx.mounted) {
+                        Navigator.pop(sheetCtx);
+                      }
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context)
+                        ..hideCurrentSnackBar()
+                        ..showSnackBar(
+                          const SnackBar(content: Text('Profile updated')),
+                        );
+                    },
+                    child: const Text('Save'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _editPreferencesSheet(AuthProvider auth) {
+    final options = [
+      'Budget · No pork',
+      'Quick meals · High protein',
+      'Vegetarian friendly',
+      'Halal friendly',
+      'No restrictions',
+    ];
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) => Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -98,12 +245,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               (opt) => ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(opt),
-                trailing: _preferences == opt
+                trailing: auth.preferences == opt
                     ? const Icon(Icons.check_circle, color: AppColors.green)
                     : null,
-                onTap: () {
-                  setState(() => _preferences = opt);
-                  Navigator.pop(context);
+                onTap: () async {
+                  await auth.updateProfile(preferences: opt);
+                  if (sheetCtx.mounted) Navigator.pop(sheetCtx);
                 },
               ),
             ),
@@ -113,11 +260,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Future<void> _confirmLogout(AuthProvider auth) async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: Text(auth.isGuest ? 'Exit Guest Mode?' : 'Log Out?'),
+        content: Text(
+          auth.isGuest
+              ? 'You will return to the login screen where you can sign in or create an account.'
+              : 'Are you sure you want to log out of ${auth.email}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF9B2C2C),
+              minimumSize: const Size(100, 42),
+            ),
+            onPressed: () => Navigator.pop(dialogCtx, true),
+            child: Text(auth.isGuest ? 'Exit' : 'Log Out'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldLogout != true || !mounted) return;
+
+    await auth.signOut();
+    if (!mounted) return;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
     final provider = context.watch<PantryProvider>();
     final itemCount = provider.items.length;
     final equipCount = provider.selectedEquipment.length;
+    final hasValidAvatar =
+        auth.avatarPath != null && File(auth.avatarPath!).existsSync();
 
     return Scaffold(
       backgroundColor: AppColors.cream,
@@ -125,70 +313,84 @@ class _ProfileScreenState extends State<ProfileScreen> {
         padding: const EdgeInsets.only(bottom: 110),
         child: Column(
           children: [
-            // Curved Pale-Green Top Header + Avatar
-            Stack(
-              clipBehavior: Clip.none,
-              alignment: Alignment.center,
-              children: [
-                Container(
-                  height: 165,
-                  width: double.infinity,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFDCE8CE),
-                    borderRadius: BorderRadius.vertical(
-                      bottom: Radius.elliptical(240, 56),
+            // Curved Pale-Green Top Header + Clickable Avatar
+            SizedBox(
+              height: 215,
+              width: double.infinity,
+              child: Stack(
+                alignment: Alignment.topCenter,
+                children: [
+                  Container(
+                    height: 165,
+                    width: double.infinity,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFDCE8CE),
+                      borderRadius: BorderRadius.vertical(
+                        bottom: Radius.elliptical(240, 56),
+                      ),
                     ),
                   ),
-                ),
-                Positioned(
-                  bottom: -44,
-                  child: Stack(
-                    children: [
-                      Container(
-                        width: 100,
-                        height: 100,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFCDE0BA),
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 4),
-                        ),
-                        child: const Icon(
-                          Icons.face_3_rounded,
-                          size: 62,
-                          color: AppColors.textDark,
-                        ),
-                      ),
-                      Positioned(
-                        right: 0,
-                        bottom: 0,
-                        child: GestureDetector(
-                          onTap: _editProfileDialog,
-                          child: Container(
-                            width: 32,
-                            height: 32,
+                  Positioned(
+                    bottom: 0,
+                    child: GestureDetector(
+                      onTap: () => _pickAvatarSheet(auth),
+                      child: Stack(
+                        children: [
+                          Container(
+                            width: 100,
+                            height: 100,
                             decoration: BoxDecoration(
-                              color: AppColors.green,
+                              color: const Color(0xFFCDE0BA),
                               shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 2),
+                              border: Border.all(color: Colors.white, width: 4),
+                              image: hasValidAvatar
+                                  ? DecorationImage(
+                                      image: FileImage(File(auth.avatarPath!)),
+                                      fit: BoxFit.cover,
+                                    )
+                                  : null,
                             ),
-                            child: const Icon(
-                              Icons.edit_rounded,
-                              size: 15,
-                              color: Colors.white,
+                            child: !hasValidAvatar
+                                ? const Icon(
+                                    Icons.face_3_rounded,
+                                    size: 62,
+                                    color: AppColors.textDark,
+                                  )
+                                : null,
+                          ),
+                          Positioned(
+                            right: 0,
+                            bottom: 0,
+                            child: Container(
+                              width: 34,
+                              height: 34,
+                              decoration: BoxDecoration(
+                                color: AppColors.green,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 2,
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.camera_alt_rounded,
+                                size: 16,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-            const SizedBox(height: 54),
+            const SizedBox(height: 12),
 
-            // Name, Handle, Sync Status Pill
+            // Name, Handle, Dorm Info & Sync Status Pill
             Text(
-              _displayName,
+              auth.displayName,
               style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.w800,
@@ -197,7 +399,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 2),
             Text(
-              _handle,
+              '${auth.handle} · ${auth.dormInfo}',
               style: const TextStyle(
                 fontSize: 13.5,
                 color: AppColors.textMuted,
@@ -211,29 +413,86 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    Icons.cloud_done_outlined,
+                    auth.isGuest
+                        ? Icons.person_outline_rounded
+                        : Icons.cloud_done_outlined,
                     size: 15,
-                    color: AppColors.green,
+                    color: auth.isGuest ? AppColors.orange : AppColors.green,
                   ),
-                  SizedBox(width: 6),
+                  const SizedBox(width: 6),
                   Text(
-                    'Synced just now',
+                    auth.isGuest ? 'Guest Session' : 'Synced · ${auth.email}',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.green,
+                      color: auth.isGuest ? AppColors.orange : AppColors.green,
                     ),
                   ),
                 ],
               ),
             ),
+
+            // Guest Upgrade Banner
+            if (auth.isGuest) ...[
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.paleGreen,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: AppColors.green.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.lock_open_rounded,
+                        color: AppColors.green,
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Sign in to back up your pantry across devices.',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textDark,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const LoginScreen(),
+                            ),
+                          );
+                        },
+                        child: const Text(
+                          'Sign In',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.green,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+
             const SizedBox(height: 18),
 
-            // Stats Row Card (Pantry items | Meals cooked | Food saved)
+            // Stats Row Card
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Container(
@@ -286,12 +545,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   children: [
                     _menuTile(
+                      icon: Icons.edit_outlined,
+                      title: 'Edit Profile Info',
+                      trailingText: auth.displayName,
+                      onTap: () => _editProfileSheet(auth),
+                    ),
+                    const Divider(height: 1, indent: 60),
+                    _menuTile(
                       icon: Icons.shopping_bag_outlined,
                       title: 'My Pantry',
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const PantryScreen(),
+                          builder: (_) => Scaffold(
+                            backgroundColor: AppColors.cream,
+                            appBar: AppBar(
+                              title: const Text('My Pantry'),
+                              backgroundColor: AppColors.cream,
+                              elevation: 0,
+                            ),
+                            body: const PantryScreen(),
+                          ),
                         ),
                       ),
                     ),
@@ -303,7 +577,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const RecipesScreen(),
+                          builder: (_) => Scaffold(
+                            backgroundColor: AppColors.cream,
+                            appBar: AppBar(
+                              title: const Text('Saved Recipes'),
+                              backgroundColor: AppColors.cream,
+                              elevation: 0,
+                            ),
+                            body: const RecipesScreen(),
+                          ),
                         ),
                       ),
                     ),
@@ -324,16 +606,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _menuTile(
                       icon: Icons.wb_sunny_outlined,
                       title: 'Preferences',
-                      trailingText: _preferences,
-                      onTap: _editPreferencesSheet,
+                      trailingText: auth.preferences,
+                      onTap: () => _editPreferencesSheet(auth),
                     ),
                     const Divider(height: 1, indent: 60),
                     _menuTile(
                       icon: Icons.notifications_none_rounded,
                       title: 'Notifications',
-                      trailingText: _notificationsOn ? 'On' : 'Off',
-                      onTap: () => setState(
-                        () => _notificationsOn = !_notificationsOn,
+                      trailingText: auth.notificationsOn ? 'On' : 'Off',
+                      onTap: () => auth.updateProfile(
+                        notificationsOn: !auth.notificationsOn,
                       ),
                     ),
                     const Divider(height: 1, indent: 60),
@@ -366,15 +648,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const OnboardingScreen(),
-                      ),
-                      (route) => false,
-                    );
-                  },
+                  onPressed: () => _confirmLogout(auth),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFF6DADA),
                     foregroundColor: const Color(0xFF9B2C2C),
@@ -383,9 +657,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       borderRadius: BorderRadius.circular(26),
                     ),
                   ),
-                  child: const Text(
-                    'Log Out',
-                    style: TextStyle(
+                  child: Text(
+                    auth.isGuest ? 'Exit Guest Mode' : 'Log Out',
+                    style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w800,
                     ),
@@ -453,12 +727,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (trailingText != null) ...[
-            Text(
-              trailingText,
-              style: const TextStyle(
-                fontSize: 12.5,
-                color: AppColors.textMuted,
-                fontWeight: FontWeight.w600,
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 130),
+              child: Text(
+                trailingText,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  color: AppColors.textMuted,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
             const SizedBox(width: 6),
