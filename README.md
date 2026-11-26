@@ -346,7 +346,7 @@ This project would not have been possible without the collaboration, dedication,
 
 <div align="center">
 
-**🏠 DORMIGO**
+## <p align="center"><i> 🏠 DORMIGO </i></p>
 
 Making every ingredient count, one meal at a time. 🌱
 
