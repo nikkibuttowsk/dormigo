@@ -16,7 +16,11 @@
 
 </div>
 
-A new Flutter project.
+![Dormigo](Dormigo.jpg)
+
+<br>
+
+---
 
 ## Getting Started
 
