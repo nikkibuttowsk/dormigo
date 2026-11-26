@@ -1,5 +1,8 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:provider/provider.dart';
 
+import '../models/pantry_item.dart';
+import '../providers/pantry_provider.dart';
 import '../utils/theme.dart';
 import '../widgets/placeholder_screen.dart';
 import 'amigo_screen.dart';
@@ -16,8 +19,7 @@ class HomeScreen extends StatefulWidget {
   /// Switches the bottom-nav tab (1 = Pantry, 2 = Recipes).
   final ValueChanged<int> onOpenTab;
 
-  /// Called after a food item is successfully added from the Home screen,
-  /// so the parent can refresh the pantry if it needs to.
+  /// Opens the main Add Food screen (photo / upload / manual).
   final VoidCallback onAddFood;
 
   @override
@@ -25,39 +27,65 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  bool _bookmarked = false;
   bool _hasUnread = true;
 
-  final List<_NotificationItem> _notifications = [
-    _NotificationItem(
-      icon: Icons.warning_amber_rounded,
-      title: 'Eggs expire in 2 days',
-      subtitle: 'Use them first!',
-    ),
-    _NotificationItem(
-      icon: Icons.soup_kitchen_outlined,
-      title: 'New recipe for you',
-      subtitle: 'Creamy Egg Fried Rice · 15 min',
-    ),
-  ];
+  /// Must match the recipe title in SeedData so Home and Recipes share the
+  /// same saved state.
+  static const _homeRecipeTitle = 'Creamy Egg Fried Rice';
+
+  // ---------------------------------------------------------------------------
+  // Notifications (built from the real pantry)
+  // ---------------------------------------------------------------------------
+
+  List<_NotificationItem> _buildNotifications(PantryProvider pantry) {
+    final alerts = <PantryItem>[
+      ...pantry.expiredItems,
+      ...pantry.expiringThisWeek.where((i) => (i.daysUntilExpiry ?? 99) <= 3),
+    ];
+
+    String titleFor(PantryItem item) {
+      final d = item.daysUntilExpiry!;
+      if (d < 0) return '${item.name} expired';
+      if (d == 0) return '${item.name} expires today';
+      return '${item.name} expires in $d day${d == 1 ? '' : 's'}';
+    }
+
+    return [
+      for (final item in alerts)
+        _NotificationItem(
+          icon: Icons.warning_amber_rounded,
+          title: titleFor(item),
+          subtitle: 'Use it first!',
+        ),
+      const _NotificationItem(
+        icon: Icons.soup_kitchen_outlined,
+        title: 'New recipe for you',
+        subtitle: 'Creamy Egg Fried Rice · 15 min',
+      ),
+    ];
+  }
 
   // ---------------------------------------------------------------------------
   // Actions
   // ---------------------------------------------------------------------------
 
   void _toggleBookmark() {
-    setState(() => _bookmarked = !_bookmarked);
+    final pantry = context.read<PantryProvider>();
+    pantry.toggleRecipeSaved(_homeRecipeTitle);
+    final saved = pantry.isRecipeSaved(_homeRecipeTitle);
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(_bookmarked ? 'Recipe saved' : 'Removed from saved'),
+          content: Text(saved ? 'Recipe saved' : 'Removed from saved'),
           duration: const Duration(seconds: 1),
         ),
       );
   }
 
   void _openNotifications() {
+    final notifications =
+        _buildNotifications(context.read<PantryProvider>());
     setState(() => _hasUnread = false);
     showModalBottomSheet<void>(
       context: context,
@@ -72,7 +100,7 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 const _SectionTitle('Notifications'),
                 const SizedBox(height: 8),
-                if (_notifications.isEmpty)
+                if (notifications.isEmpty)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 24),
                     child: Center(
@@ -83,7 +111,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   )
                 else
-                  ..._notifications.map(
+                  ...notifications.map(
                     (n) => ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: CircleAvatar(
@@ -132,33 +160,17 @@ class _HomeScreenState extends State<HomeScreen> {
                   subtitle: 'Snap your groceries',
                   onTap: () {
                     Navigator.pop(sheetContext);
-                    _push(
-                      Scaffold(
-                        appBar: AppBar(title: const Text('Take a Photo')),
-                        body: const PlaceholderScreen(title: 'Take a Photo'),
-                      ),
-                    );
+                    // Opens the main Add Food screen (camera picker lives there).
+                    widget.onAddFood();
                   },
                 ),
-                _AddOption(
-                  icon: Icons.qr_code_scanner,
-                  title: 'Scan barcode',
-                  subtitle: 'Scan a packaged item',
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    _push(
-                      Scaffold(
-                        appBar: AppBar(title: const Text('Scan Barcode')),
-                        body: const PlaceholderScreen(title: 'Scan Barcode'),
-                      ),
-                    );
-                  },
-                ),
+                
                 _AddOption(
                   icon: Icons.edit_outlined,
                   title: 'Add manually',
                   subtitle: 'Type in the details',
                   onTap: () async {
+                    final pantry = context.read<PantryProvider>();
                     Navigator.pop(sheetContext);
                     final added = await Navigator.push<_FoodEntry>(
                       context,
@@ -167,12 +179,41 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     );
                     if (!mounted || added == null) return;
-                    widget.onAddFood();
-                    ScaffoldMessenger.of(context)
-                      ..hideCurrentSnackBar()
-                      ..showSnackBar(
-                        SnackBar(content: Text('${added.name} added')),
+
+                    
+                    final category = FoodCategory.values.firstWhere(
+                      (c) => c.name == 'other',
+                      orElse: () => FoodCategory.values.first,
+                    );
+                    final storage = StorageLocation.values.firstWhere(
+                      (s) => s.name == 'pantry' || s.name == 'shelf',
+                      orElse: () => StorageLocation.values.first,
+                    );
+
+                    try {
+                      await pantry.addNewItem(
+                        name: added.name,
+                        category: category,
+                        quantity: double.tryParse(added.quantity) ?? 1,
+                        unit: 'pcs',
+                        expiryDate: added.expiry,
+                        storageLocation: storage,
                       );
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context)
+                        ..hideCurrentSnackBar()
+                        ..showSnackBar(
+                          SnackBar(content: Text('${added.name} added')),
+                        );
+                    } catch (_) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content:
+                              Text('Could not save. Check your connection.'),
+                        ),
+                      );
+                    }
                   },
                 ),
               ],
@@ -232,6 +273,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHeader() {
+    final hasAlerts =
+        _buildNotifications(context.watch<PantryProvider>()).isNotEmpty;
+
     return Row(
       children: [
         const CircleAvatar(
@@ -275,7 +319,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: _openNotifications,
             icon: Badge(
               smallSize: 8,
-              isLabelVisible: _hasUnread,
+              isLabelVisible: _hasUnread && hasAlerts,
               child: const Icon(Icons.notifications_none),
             ),
           ),
@@ -368,24 +412,36 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// Red "Use First!" card. Only shown when something in the pantry is
+  /// actually about to expire.
   Widget _buildUseFirst() {
+    final urgent = context.watch<PantryProvider>().urgentItem;
+    if (urgent == null) return const SizedBox.shrink();
+
+    final d = urgent.daysUntilExpiry!;
+    final when =
+        d == 0 ? 'expires today' : 'expires in $d day${d == 1 ? '' : 's'}';
+
     return Material(
       color: AppColors.alertBg,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () => _push(const ExpiryTrackerScreen()),
-        child: const Padding(
-          padding: EdgeInsets.all(14),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
           child: Row(
             children: [
-              Icon(Icons.warning_amber_rounded, color: AppColors.alertText),
-              SizedBox(width: 12),
+              const Icon(
+                Icons.warning_amber_rounded,
+                color: AppColors.alertText,
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       'Use First!',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
@@ -393,8 +449,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                     Text(
-                      'Eggs · expires in 2 days',
-                      style: TextStyle(
+                      '${urgent.name} · $when',
+                      style: const TextStyle(
                         fontSize: 12,
                         color: AppColors.alertText,
                       ),
@@ -402,7 +458,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right, color: AppColors.alertText),
+              const Icon(Icons.chevron_right, color: AppColors.alertText),
             ],
           ),
         ),
@@ -466,6 +522,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildRecipeCard() {
+    final saved =
+        context.watch<PantryProvider>().isRecipeSaved(_homeRecipeTitle);
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -490,7 +549,7 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Creamy Egg Fried Rice',
+                  _homeRecipeTitle,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: AppColors.textDark,
@@ -518,10 +577,10 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           IconButton(
             onPressed: _toggleBookmark,
-            tooltip: _bookmarked ? 'Remove bookmark' : 'Save recipe',
+            tooltip: saved ? 'Remove bookmark' : 'Save recipe',
             icon: Icon(
-              _bookmarked ? Icons.bookmark : Icons.bookmark_border,
-              color: _bookmarked ? AppColors.green : AppColors.textMuted,
+              saved ? Icons.bookmark : Icons.bookmark_border,
+              color: saved ? AppColors.green : AppColors.textMuted,
             ),
           ),
         ],

@@ -40,6 +40,7 @@ class DormigoApp extends StatelessWidget {
       theme: buildAppTheme(),
       home: const SplashScreen(),
       navigatorKey: amigoNavigatorKey,
+      navigatorObservers: [amigoRouteObserver],
       builder: (context, child) => AmigoOverlay(child: child!),
     );
   }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../database/db_helper.dart';
@@ -7,6 +9,48 @@ import '../database/seed_data.dart';
 class PantryProvider extends ChangeNotifier {
   final List<PantryItem> _items = [];
   final Set<String> _selectedEquipment = {'Rice Cooker', 'Kettle'};
+
+  
+  bool _loadStarted = false;
+  final Completer<void> _loaded = Completer<void>();
+
+  Future<void> get whenLoaded =>
+      _loadStarted ? _loaded.future : Future<void>.value();
+
+  final Set<String> _savedRecipeTitles = {};
+
+  Set<String> get savedRecipeTitles => Set.unmodifiable(_savedRecipeTitles);
+
+  bool isRecipeSaved(String title) => _savedRecipeTitles.contains(title);
+
+  void toggleRecipeSaved(String title) {
+    if (!_savedRecipeTitles.remove(title)) _savedRecipeTitles.add(title);
+    notifyListeners();
+  }
+
+  final List<String> _shoppingList = [];
+
+  List<String> get shoppingList => List.unmodifiable(_shoppingList);
+
+  void addToShoppingList(Iterable<String> names) {
+    for (final n in names) {
+      final exists =
+          _shoppingList.any((s) => s.toLowerCase() == n.toLowerCase());
+      if (!exists) _shoppingList.add(n);
+    }
+    notifyListeners();
+  }
+
+  List<String> missingIngredients(List ingredients) {
+    final have = _items.map((e) => e.name.toLowerCase()).toList();
+    return [
+      for (final ing in ingredients)
+        if (!have.any((p) =>
+            p.contains(ing.toString().toLowerCase()) ||
+            ing.toString().toLowerCase().contains(p)))
+          ing.toString(),
+    ];
+  }
 
   static const List<String> allEquipment = [
     'Rice Cooker',
@@ -30,8 +74,17 @@ class PantryProvider extends ChangeNotifier {
   }
 
   /// Loads saved pantry items and equipment from Supabase
-  /// Loads saved pantry items and equipment from Supabase (or seeds starter data if empty)
+  /// (or seeds starter data if empty). Safe to call more than once.
   Future<void> loadFromSupabase() async {
+    _loadStarted = true;
+    try {
+      await _loadFromSupabase();
+    } finally {
+      if (!_loaded.isCompleted) _loaded.complete();
+    }
+  }
+
+  Future<void> _loadFromSupabase() async {
     if (!_isSupabaseReady) {
       if (_items.isEmpty) {
         _items.addAll(SeedData.starterPantryItems());
@@ -43,7 +96,6 @@ class PantryProvider extends ChangeNotifier {
     try {
       final rows = await DbHelper.instance.fetchPantryItems();
       if (rows.isEmpty) {
-        // First-time user: seed starter dorm items into Supabase
         for (final seed in SeedData.starterPantryItems()) {
           final inserted = await DbHelper.instance.insertPantryItem({
             'name': seed.name,
@@ -75,7 +127,6 @@ class PantryProvider extends ChangeNotifier {
     }
   }
 
-  /// Adds a new food item (syncs to Supabase + updates UI immediately)
   Future<void> addNewItem({
     required String name,
     required FoodCategory category,

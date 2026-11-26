@@ -15,7 +15,6 @@ class RecipesScreen extends StatefulWidget {
 
 class _RecipesScreenState extends State<RecipesScreen> {
   String _selectedFilter = 'All';
-  final Set _bookmarkedTitles = {'Creamy Tuna Pasta'};
   final List _filters = const ['All', 'Quick', 'Healthy', 'Budget'];
 
   int _calculateMatchPercent(List ingredients, List pantryNames) {
@@ -229,7 +228,8 @@ class _RecipesScreenState extends State<RecipesScreen> {
                     final equipment = List.from(recipe['equipment'] ?? []);
                     final matchPct =
                         _calculateMatchPercent(ingredients, pantryNames);
-                    final isBookmarked = _bookmarkedTitles.contains(title);
+                    // Shared with Home: saved state lives in PantryProvider.
+                    final isBookmarked = provider.isRecipeSaved(title);
                     final isWarmOrange = index.isEven;
 
                     return GestureDetector(
@@ -301,15 +301,8 @@ class _RecipesScreenState extends State<RecipesScreen> {
                                     top: 12,
                                     right: 12,
                                     child: GestureDetector(
-                                      onTap: () {
-                                        setState(() {
-                                          if (isBookmarked) {
-                                            _bookmarkedTitles.remove(title);
-                                          } else {
-                                            _bookmarkedTitles.add(title);
-                                          }
-                                        });
-                                      },
+                                      onTap: () =>
+                                          provider.toggleRecipeSaved(title),
                                       child: Container(
                                         width: 36,
                                         height: 36,
