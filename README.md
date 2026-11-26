@@ -198,17 +198,13 @@ DORMIGO utilizes mobile development technologies, backend services, database man
 
 Artificial Intelligence is integrated into two major functionalities of DORMIGO to improve food inventory management and meal discovery.
 
-1. AI-Assisted Food Identification
+**1. AI-Assisted Food Identification**
 
 The AI integration assists users in identifying food items through uploaded or captured images. This functionality helps simplify pantry inventory entry and reduces the effort required for manually recording food items.
 
-2. AI-Powered Smart Recipe Recommendations
+**2. AI-Powered Smart Recipe Recommendations**
 
-The AI integration analyzes the ingredients available in the user's digital pantry and considers selected dormitory cooking equipment to generate practical meal suggestions.
-
-This feature helps users discover possible meals using ingredients they already own while considering the cooking appliances available in their dormitories.
-
-Through these AI-powered functionalities, DORMIGO aims to provide a more convenient and efficient food management experience.
+The AI integration analyzes the ingredients available in the user's digital pantry and considers selected dormitory cooking equipment to generate practical meal suggestions. This feature helps users discover possible meals using ingredients they already own while considering the cooking appliances available in their dormitories. Through these AI-powered functionalities, DORMIGO aims to provide a more convenient and efficient food management experience.
 
 <br>
 
