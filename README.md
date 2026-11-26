@@ -1,6 +1,8 @@
 <h1 align="center"> DORMIGO</h1>
 <h3 align="center">A Smart Pantry and Recipe Recommendation Mobile Application for Dormitory Students</h3>
 
+> A smart mobile application that helps dormitory students manage food inventory, track expiration dates, and discover AI-powered recipes based on available ingredients and cooking equipment — promoting efficient food management, smarter meal planning, and reduced food waste.
+
 <div align="center">
 
 ![Dart](https://img.shields.io/badge/Dart-Language-0175C2?style=flat-square&logo=dart)
