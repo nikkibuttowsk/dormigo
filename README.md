@@ -105,21 +105,27 @@ Specifically, the project aims to:
 ## ✨ Key Features
 
 **🥫 1. Smart Digital Pantry**
+
 A centralized digital inventory that allows users to add, organize, view, update, and manage their available food items.
+
 - Add food items through photo uploads or manual entry.
 - Capture food images for AI-assisted identification.
 - Record food quantities and relevant item information.
 - Maintain an organized and updated food inventory.
 
 **⏰ 2. Expiry Date Tracker**
+
 A feature that monitors food quantities and expiration dates to help users prioritize ingredients that should be consumed first.
+
 - Record food expiration dates.
 - Monitor available food quantities.
 - Highlight ingredients approaching their expiration dates.
 - Help users avoid overlooking stored ingredients.
 
 **🤖 3. Smart Recipe Recommendations**
+
 An AI-powered feature that generates practical meal suggestions based on ingredients currently available in the user's digital pantry.
+
 - Analyze available pantry ingredients.
 - Generate relevant recipe suggestions.
 - Consider available dormitory cooking equipment.
@@ -127,7 +133,9 @@ An AI-powered feature that generates practical meal suggestions based on ingredi
 - Reduce unnecessary food purchases.
 
 **🍳 4. Dorm Equipment Filter**
+
 Allows users to discover recipes that match the cooking appliances available in their dormitories or boarding houses.
+
 Supported Cooking Equipment:
 - Rice Cooker
 - Electric Kettle
@@ -135,14 +143,18 @@ Supported Cooking Equipment:
 - Hot Plate
 
 **📖 5. Step-by-Step Cooking Guide**
+
 Provides organized cooking instructions to help users prepare their selected recipes.
+
 - Display required ingredients and measurements.
 - Provide step-by-step cooking instructions.
 - Show estimated preparation and cooking times.
 - Guide users through the cooking process.
 
 **♻️ 6. Food Waste Monitor**
+
 A monitoring feature that tracks recorded food consumption and discarded ingredients.
+
 - Monitor consumed ingredients.
 - Record discarded food items.
 - Display food utilization statistics.
@@ -150,7 +162,9 @@ A monitoring feature that tracks recorded food consumption and discarded ingredi
 - Encourage responsible food management.
 
 **👤 7. User Profile Management**
+
 Allows users to manage their personal information and application preferences.
+
 - Manage account information.
 - Access personal pantry records.
 - Maintain saved recipes.
@@ -164,65 +178,17 @@ Allows users to manage their personal information and application preferences.
 
 DORMIGO utilizes mobile development technologies, backend services, database management tools, and AI integration to support its functionalities.
 
-Technology
-
-Category
-
-Purpose
-
-Dart
-
-Programming Language
-
-Implements application logic, data processing, and system functionalities.
-
-Flutter
-
-Mobile Framework
-
-Develops the mobile user interface and application functionalities.
-
-Supabase
-
-Backend Service
-
-Handles authentication, backend operations, and data synchronization.
-
-PostgreSQL
-
-Database
-
-Stores user profiles, pantry items, recipes, and food consumption records.
-
-AI Integration / API
-
-Artificial Intelligence
-
-Supports AI-assisted food identification and recipe recommendations.
-
-Visual Studio Code
-
-Code Editor
-
-Used for writing, editing, debugging, and managing source code.
-
-Android Studio
-
-Development Tool
-
-Provides Android SDK tools, emulation, and application build support.
-
-Figma
-
-UI/UX Design
-
-Used for application layouts and interface prototyping.
-
-Git & GitHub
-
-Version Control
-
-Tracks source code changes and maintains the project repository.
+| Technology | Category | Purpose |
+|------------|---------| ---------|
+| Dart | Programming Language | Implements application logic, data processing, and system functionalities. |
+| Flutter | Mobile Framework | Develops the mobile user interface and application functionalities. |
+| Supabase | Backend Service | Handles authentication, backend operations, and data synchronization. |
+| PostgreSQL | Database | Stores user profiles, pantry items, recipes, and food consumption records. |
+| AI Integration / API | Artificial Intelligence | Supports AI-assisted food identification and recipe recommendations. |
+| Visual Studio Code | Code Editor | Used for writing, editing, debugging, and managing source code. |
+| Android Studio | Development Tool | Provides Android SDK tools, emulation, and application build support. |
+| Figma | UI/UX Design | Used for application layouts and interface prototyping. |
+| Git & GitHub | Version Control | Tracks source code changes and maintains the project repository. |
 
 <br>
 
