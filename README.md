@@ -218,67 +218,24 @@ Through these AI-powered functionalities, DORMIGO aims to provide a more conveni
 
 Follow the instructions below to set up and run the DORMIGO application in a local development environment.
 
-Prerequisites
-
 Make sure the following tools are installed:
+- Flutter SDK
+- Dart SDK
+- Visual Studio Code
+- Android Studio
+- Git
 
-Flutter SDK
+| Step | Process | Description/Command |
+|------------|---------| ---------|
+| 1. Clone the Repository | Repository Setup | git clone https://github.com/YOUR-USERNAME/DORMIGO.git |
+| 2. Navigate to the Project Directory | Project Setup | cd DORMIGO |
+| 3. Install Dependencies | Dependency Management | Run flutter pub get to download and install the required project dependencies. |
+| 4. Configure Supabase| Backend Configuration | Create or access a Supabase project, configure the PostgreSQL database and authentication services, and set up the Supabase URL and publishable key according to the application's implementation. Ensure that the required database tables and access policies are configured. |
+| 5. Configure AI Integration | AI Configuration | Set up the required AI service credentials and configuration according to the application's implementation. Store sensitive API credentials securely. |
+| 6. Run the Application | Application Execution | Connect an Android device or launch an Android emulator, then execute flutter run to launch the application. |
+| 7. Build APK | Application Deployment | Run flutter build apk --release to generate an installable Android APK. |
 
-Dart SDK
-
-Visual Studio Code
-
-Android Studio
-
-Git
-
-1. Clone the Repository
-
-git clone https://github.com/YOUR-USERNAME/DORMIGO.git
-
-2. Navigate to the Project Directory
-
-cd DORMIGO
-
-3. Install Dependencies
-
-flutter pub get
-
-4. Configure Supabase
-
-Configure the Supabase connection required by the application.
-
-Create or access your Supabase project.
-
-Configure the PostgreSQL database.
-
-Set up the required authentication services.
-
-Configure the Supabase URL and publishable key according to the project's implementation.
-
-Ensure that the required database tables and access policies are configured.
-
-Security Reminder: Never upload private API keys, service role keys, or sensitive credentials to a public GitHub repository.
-
-5. Configure AI Integration
-
-Set up the required AI service credentials and configuration according to the application's implementation.
-
-Ensure that sensitive API credentials are stored securely and are not exposed in the public repository.
-
-6. Run the Application
-
-Connect an Android device or launch an Android emulator.
-
-flutter run
-
-7. Build APK
-
-To generate an installable Android APK:
-
-flutter build apk --release
-
-The generated APK will be located at:
+**Generated APK Location:**
 
 build/app/outputs/flutter-apk/app-release.apk
 
@@ -393,7 +350,7 @@ This project would not have been possible without the collaboration, dedication,
 
 <div align="center">
 
-🏠 DORMIGO
+**🏠 DORMIGO**
 
 Making every ingredient count, one meal at a time. 🌱
 
