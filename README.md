@@ -320,19 +320,13 @@ The application is designed primarily for Android devices and focuses on food in
 
 Future versions of DORMIGO may include additional functionalities to improve food management, user convenience, and overall application performance.
 
-Advanced AI Identification – Improve food identification capabilities to recognize a wider variety of ingredients and packaged food items.
-
-Personalized Recipe Recommendations – Provide customized recipe suggestions based on user preferences and previous recipe selections.
-
-Smart Expiration Notifications – Implement automated reminders for ingredients approaching their expiration dates.
-
-Nutritional Information – Include estimated nutritional values for recommended recipes.
-
-Budget and Grocery Tracking – Add a feature for monitoring food expenses and generating shopping lists based on pantry shortages.
-
-Offline Access – Allow users to access selected pantry records and saved recipes without an active internet connection.
-
-Enhanced Food Waste Analytics – Provide more detailed reports about food consumption patterns and waste reduction progress.
+**Advanced AI Identification** – Improve food identification capabilities to recognize a wider variety of ingredients and packaged food items.
+**Personalized Recipe Recommendations** – Provide customized recipe suggestions based on user preferences and previous recipe selections.
+**Smart Expiration Notifications** – Implement automated reminders for ingredients approaching their expiration dates.
+**Nutritional Information** – Include estimated nutritional values for recommended recipes.
+**Budget and Grocery Tracking** – Add a feature for monitoring food expenses and generating shopping lists based on pantry shortages.
+**Offline Access** – Allow users to access selected pantry records and saved recipes without an active internet connection.
+**Enhanced Food Waste Analytics** – Provide more detailed reports about food consumption patterns and waste reduction progress.
 
 <br>
 
@@ -342,27 +336,12 @@ Enhanced Food Waste Analytics – Provide more detailed reports about food consu
 
 DORMIGO was developed by a team of students as part of an academic software development project.
 
-<div align="center">
-
-Developer
-
-Role
-
-Lance T. Buenviaje
-
-Developer
-
-Chloe Yzabelle M. Gonzaga
-
-Developer
-
-Nikki C. Limboc
-
-Developer
-
-Jisselle Mae M. Silla
-
-Developer
+| Name | GitHub |
+|------|--------|
+| Nikki C. Limboc | [@nikkibuttowsk](https://github.com/nikkibuttowsk)|
+| Chloe Yzabelle M. Gonzaga | [@DreiLunar](https://github.com/DreiLunar)|
+| Jisselle Mae M. Silla | [@ellemrsgn27](https://github.com/ellemrsgn27) |
+| Lance T. Buenviaje | [@LncBnvj](https://github.com/LncBnvj)|
 
 </div>
 
