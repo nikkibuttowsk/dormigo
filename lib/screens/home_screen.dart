@@ -1,5 +1,8 @@
+import 'dart:io';
 import 'package:material_ui/material_ui.dart';
+import 'package:provider/provider.dart';
 
+import '../providers/auth_provider.dart';
 import '../utils/theme.dart';
 import '../widgets/placeholder_screen.dart';
 import 'expiry_tracker_screen.dart';
@@ -12,9 +15,18 @@ class HomeScreen extends StatelessWidget {
     required this.onAddFood,
   });
 
-  /// Switches the bottom-nav tab (1 = Pantry, 2 = Recipes).
+  /// Switches the bottom-nav tab
   final ValueChanged<int> onOpenTab;
   final VoidCallback onAddFood;
+
+  ImageProvider? _avatarImageProvider(String? url) {
+    if (url == null || url.isEmpty) return null;
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return NetworkImage(url);
+    }
+    final file = File(url);
+    return file.existsSync() ? FileImage(file) : null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +34,7 @@ class HomeScreen extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
         children: [
-          _buildHeader(),
+          _buildHeader(context),
           const SizedBox(height: 20),
           _buildSavedCard(),
           const SizedBox(height: 24),
@@ -56,39 +68,55 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    final fullName = auth.displayName.trim();
+    final firstName =
+        fullName.isEmpty ? 'Chef' : fullName.split(RegExp(r'\s+')).first;
+    final initial = firstName[0].toUpperCase();
+    final avatarProvider = _avatarImageProvider(auth.avatarUrl);
+
     return Row(
       children: [
-        const CircleAvatar(
-          radius: 22,
-          backgroundColor: AppColors.orange,
-          child: Text(
-            'C',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
+        GestureDetector(
+          onTap: () => onOpenTab(3),
+          child: CircleAvatar(
+            radius: 22,
+            backgroundColor: AppColors.orange,
+            backgroundImage: avatarProvider,
+            child: avatarProvider == null
+                ? Text(
+                    initial,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  )
+                : null,
           ),
         ),
         const SizedBox(width: 12),
-        const Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Hi, Chloe!',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textDark,
+        Expanded(
+          child: GestureDetector(
+            onTap: () => onOpenTab(3),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Hi, $firstName!',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
+                  ),
                 ),
-              ),
-              Text(
-                'Cook smart today',
-                style: TextStyle(fontSize: 12, color: AppColors.textMuted),
-              ),
-            ],
+                const Text(
+                  'Cook smart today',
+                  style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                ),
+              ],
+            ),
           ),
         ),
         Container(
