@@ -108,7 +108,11 @@ Establish a structured and reliable backend database using Supabase and PostgreS
 
 <a id="-key-features"></a>
 
-✨ Key Features
+<br>
+
+---
+
+## ✨ Key Features
 
 🥫 1. Smart Digital Pantry
 
@@ -200,9 +204,11 @@ Maintain saved recipes.
 
 Synchronize user information across sessions.
 
-<a id="-technology-stack"></a>
+<br>
 
-🛠️ Technology Stack
+---
+
+## 🛠️ Technology Stack
 
 DORMIGO utilizes mobile development technologies, backend services, database management tools, and AI integration to support its functionalities.
 
@@ -266,77 +272,11 @@ Version Control
 
 Tracks source code changes and maintains the project repository.
 
-<a id="-system-architecture"></a>
+<br>
 
-🏗️ System Architecture
+---
 
-DORMIGO follows a Client-Server Architecture that connects the mobile application, backend services, database, and AI integration.
-
-Architecture Components
-
-Layer
-
-Technology
-
-Description
-
-Presentation Layer
-
-Flutter
-
-Provides the mobile user interface, screens, and navigation.
-
-Application Logic Layer
-
-Dart
-
-Handles user interactions, application states, data processing, and validation.
-
-Backend and Database Layer
-
-Supabase & PostgreSQL
-
-Manages authentication, data storage, and synchronization.
-
-AI Integration Layer
-
-AI Service / API
-
-Supports food identification and recipe generation.
-
-System Workflow
-
-Users open DORMIGO and register or log in to their accounts.
-
-After successful authentication, users access the main dashboard.
-
-Users select their desired functionality.
-
-Users add food items through image uploads, camera capture, or manual entry.
-
-AI assists in identifying submitted food images and generating recipe suggestions.
-
-Users manage their pantry, explore recipes, and record food consumption.
-
-Application information is stored and synchronized through Supabase and PostgreSQL.
-
-Processed information is displayed through the mobile application's interface.
-
-System Architecture Diagram
-
-<!-- Add your system architecture diagram here -->
-
-<p align="center">
-  <img src="docs/images/system-architecture.png" alt="DORMIGO System Architecture" width="85%">
-</p>
-
-<p align="center">
-  <em>Figure 1. DORMIGO System Architecture</em>
-</p>
-
-<a id="-ai-integration"></a>
-
-🤖 AI Integration
+## 🤖 AI Integration
 
 Artificial Intelligence is integrated into two major functionalities of DORMIGO to improve food inventory management and meal discovery.
 
@@ -352,9 +292,11 @@ This feature helps users discover possible meals using ingredients they already 
 
 Through these AI-powered functionalities, DORMIGO aims to provide a more convenient and efficient food management experience.
 
-<a id="-installation-and-setup"></a>
+<br>
 
-⚙️ Installation and Setup
+---
+
+## ⚙️ Installation and Setup
 
 Follow the instructions below to set up and run the DORMIGO application in a local development environment.
 
@@ -422,9 +364,11 @@ The generated APK will be located at:
 
 build/app/outputs/flutter-apk/app-release.apk
 
-<a id="-project-scope-and-limitations"></a>
+<br>
 
-📌 Project Scope and Limitations
+---
+
+## 📌 Project Scope and Limitations
 
 DORMIGO focuses on seven major functionalities:
 
@@ -462,9 +406,11 @@ Food Safety: DORMIGO does not guarantee food safety or determine whether ingredi
 
 Platform Compatibility: The application is primarily developed for Android devices, and its functionality may vary depending on device specifications and operating system compatibility.
 
-<a id="-future-enhancements"></a>
+<br>
 
-🚀 Future Enhancements
+---
+
+## 🚀 Future Enhancements
 
 Future versions of DORMIGO may include additional functionalities to improve food management, user convenience, and overall application performance.
 
@@ -482,9 +428,11 @@ Offline Access – Allow users to access selected pantry records and saved recip
 
 Enhanced Food Waste Analytics – Provide more detailed reports about food consumption patterns and waste reduction progress.
 
-<a id="-developers"></a>
+<br>
 
-👨‍💻 Developers
+---
+
+## 👨‍💻 Developers
 
 DORMIGO was developed by a team of students as part of an academic software development project.
 
@@ -512,9 +460,11 @@ Developer
 
 </div>
 
-<a id="-acknowledgement"></a>
+<br>
 
-💚 Acknowledgement
+---
+
+## 💚 Acknowledgement
 
 We would like to express our sincere gratitude to our project adviser for the continuous guidance, valuable insights, encouragement, and support throughout the development of DORMIGO.
 
