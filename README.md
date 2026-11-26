@@ -1,4 +1,4 @@
-<h1 align="center">🏠 DORMIGO</h1>
+<h1 align="center"> DORMIGO</h1>
 <h3 align="center">A Smart Pantry and Recipe Recommendation Mobile Application for Dormitory Students</h3>
 
 <div align="center">
