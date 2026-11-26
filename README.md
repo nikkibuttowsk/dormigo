@@ -89,24 +89,14 @@ To develop a Flutter-based mobile application using Dart and AI integration that
 Specific Objectives
 
 Specifically, the project aims to:
-
-Develop a Smart Digital Pantry that allows users to add, organize, and manage food items through photo uploads, camera capture, or manual entry, with AI-assisted food identification.
-
-Implement an Expiry Date Tracker that monitors food quantities and expiration dates while highlighting ingredients that should be consumed first.
-
-Integrate AI-powered Smart Recipe Recommendations that suggest practical meals based on available pantry ingredients and selected dormitory cooking equipment.
-
-Provide a Dorm Equipment Filter that identifies recipes compatible with available appliances, such as rice cookers, electric kettles, microwaves, and hot plates.
-
-Develop a Step-by-Step Cooking Guide that provides cooking instructions, ingredient measurements, and estimated preparation times.
-
-Implement a Food Waste Monitor that tracks food consumption and displays statistics on ingredients used, saved, and discarded.
-
-Develop a User Profile that manages personal preferences, pantry information, and saved recipes while maintaining synchronized data across sessions.
-
-Establish a structured and reliable backend database using Supabase and PostgreSQL to store and manage user, pantry, and recipe information.
-
-<a id="-key-features"></a>
+- Develop a Smart Digital Pantry that allows users to add, organize, and manage food items through photo uploads, camera capture, or manual entry, with AI-assisted food identification.
+- Implement an Expiry Date Tracker that monitors food quantities and expiration dates while highlighting ingredients that should be consumed first.
+- Integrate AI-powered Smart Recipe Recommendations that suggest practical meals based on available pantry ingredients and selected dormitory cooking equipment.
+- Provide a Dorm Equipment Filter that identifies recipes compatible with available appliances, such as rice cookers, electric kettles, microwaves, and hot plates.
+- Develop a Step-by-Step Cooking Guide that provides cooking instructions, ingredient measurements, and estimated preparation times.
+- Implement a Food Waste Monitor that tracks food consumption and displays statistics on ingredients used, saved, and discarded.
+- Develop a User Profile that manages personal preferences, pantry information, and saved recipes while maintaining synchronized data across sessions.
+- Establish a structured and reliable backend database using Supabase and PostgreSQL to store and manage user, pantry, and recipe information.
 
 <br>
 
@@ -464,6 +454,34 @@ Developer
 
 ---
 
+## License
+
+``` bash
+MIT License
+Copyright (c) 2026 FundForest Development Team
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+```
+<br>
+---
+
 ## 💚 Acknowledgement
 
 We would like to express our sincere gratitude to our project adviser for the continuous guidance, valuable insights, encouragement, and support throughout the development of DORMIGO.
@@ -471,6 +489,10 @@ We would like to express our sincere gratitude to our project adviser for the co
 We also extend our appreciation to our instructors, classmates, and everyone who shared their knowledge and provided assistance during the planning, development, and improvement of the application.
 
 This project would not have been possible without the collaboration, dedication, and shared efforts of every member of the development team.
+
+---
+
+<br>
 
 <div align="center">
 
