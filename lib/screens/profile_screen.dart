@@ -10,6 +10,7 @@ import 'dorm_equipment_screen.dart';
 import 'login_screen.dart';
 import 'pantry_screen.dart';
 import 'recipes_screen.dart';
+import 'amigo_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -358,6 +359,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (shouldLogout != true || !mounted) return;
 
+    resetAmigoChat();
     context.read<PantryProvider>().resetForNewSession();
     await auth.signOut();
     if (!mounted) return;

@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../database/seed_data.dart';
+import '../providers/auth_provider.dart';
 import '../providers/pantry_provider.dart';
 import '../utils/theme.dart';
 import 'cooking_guide_screen.dart';
@@ -45,6 +46,9 @@ class AmigoRouteObserver extends NavigatorObserver {
 }
 
 final AmigoRouteObserver amigoRouteObserver = AmigoRouteObserver();
+
+/// Clears Amigo's in-memory conversation (call on logout / user switch).
+void resetAmigoChat() => _chat.reset();
 
 /// Opens Amigo as a small bottom panel.
 void showAmigoSheet([BuildContext? context]) {
@@ -141,6 +145,19 @@ class _AmigoChat extends ChangeNotifier {
   bool typing = false;
   String timeLabel = '';
   int _session = 0;
+  String? _activeUserId;
+
+  /// Clears chat memory whenever the signed-in user changes or logs out.
+  void syncUser(String? userId) {
+    if (_activeUserId == userId) return;
+    _activeUserId = userId;
+    if (messages.isNotEmpty || typing) {
+      _session++;
+      messages.clear();
+      typing = false;
+      timeLabel = '';
+    }
+  }
 
   /// Recipe attached to the LATEST Amigo reply only. Returns null when the
   /// latest reply has no recipe (for example a meal plan).
@@ -156,6 +173,7 @@ class _AmigoChat extends ChangeNotifier {
     _session++;
     messages.clear();
     typing = false;
+    timeLabel = '';
     notifyListeners();
   }
 
@@ -170,12 +188,12 @@ class _AmigoChat extends ChangeNotifier {
     typing = true;
     notifyListeners();
 
-    // Comment 5: Wait for the initial Supabase load to finish without a 5s cutoff
-    // so slow networks never read a stale/empty pantry.
+    // Wait for the initial Supabase load to finish so slow networks never read
+    // a stale or empty pantry.
     await provider.whenLoaded;
     if (session != _session) return;
 
-    // Comments 8 & 9: Only include unexpired pantry items normalized for exact matching.
+    // Only include unexpired pantry items normalized for exact matching.
     final validNormalizedPantry = provider.items
         .where((e) => e.daysUntilExpiry == null || e.daysUntilExpiry! >= 0)
         .map((e) => _normalizeIngredient(e.name))
@@ -217,6 +235,22 @@ Map<String, dynamic> _buildAmigoReply(
 
   if (wantsSwap) {
     if (q.contains('cream')) {
+      final hasMilk = validNormalizedPantry.contains('milk');
+      final hasCheese = validNormalizedPantry.contains('cheese');
+      if (hasMilk) {
+        return {
+          'isUser': false,
+          'text':
+              'No cream? You already have milk in your pantry—swap in 1/2 cup of milk + 1 tsp butter for the same creamy texture!',
+        };
+      }
+      if (hasCheese) {
+        return {
+          'isUser': false,
+          'text':
+              'No cream? Melt a slice of the cheese from your pantry into warm broth for the same creamy texture!',
+        };
+      }
       return {
         'isUser': false,
         'text':
@@ -230,21 +264,41 @@ Map<String, dynamic> _buildAmigoReply(
     };
   }
 
-  // Weekly meal plan query
+  // Weekly meal plan query filtered by user's registered equipment
   if (q.contains('plan') || q.contains('week') || q.contains('3 ')) {
+    final matching = SeedData.seededRecipes.where((r) {
+      final reqEquip = List.from(r['equipment'] ?? []);
+      return selectedEquip.isEmpty ||
+          reqEquip.any((e) => selectedEquip.contains(e));
+    }).take(3).toList();
+
+    final picks = matching.isNotEmpty
+        ? matching
+        : SeedData.seededRecipes.take(3).toList();
+    const days = ['Mon', 'Tue', 'Wed'];
+    final lines = [
+      for (var i = 0; i < picks.length; i++)
+        '• ${days[i]}: ${picks[i]['title']} (${picks[i]['prep_minutes']} min)',
+    ].join('\n');
+
     return {
       'isUser': false,
       'text':
-          'Here is a 3-night budget dorm plan using your pantry:\n• Mon: Creamy Egg Fried Rice (15 min)\n• Tue: Kettle Egg Drop Ramen (7 min)\n• Wed: Tomato & Egg Stir-Fry over Rice (10 min)',
+          'Here is a ${picks.length}-night budget dorm plan matched to your pantry & equipment:\n$lines',
     };
   }
 
-  // Recipe recommendation
+  // Match requested equipment from user's prompt or registered equipment
+  final requestedEquip = selectedEquip.cast<String?>().firstWhere(
+        (e) => e != null && q.contains(e.toLowerCase()),
+        orElse: () => null,
+      );
+
   Map pickedRecipe = SeedData.seededRecipes.first;
-  if (q.contains('kettle')) {
+  if (requestedEquip != null) {
     pickedRecipe = SeedData.seededRecipes.firstWhere(
-      (r) => List.from(r['equipment'] ?? []).contains('Kettle'),
-      orElse: () => SeedData.seededRecipes[3],
+      (r) => List.from(r['equipment'] ?? []).contains(requestedEquip),
+      orElse: () => SeedData.seededRecipes.first,
     );
   } else {
     for (final r in SeedData.seededRecipes) {
@@ -262,9 +316,9 @@ Map<String, dynamic> _buildAmigoReply(
     }
   }
 
-  final equipText = q.contains('kettle')
-      ? 'With a kettle, your eggs and noodles work great.'
-      : 'Based on your pantry items, this uses ingredients you already have.';
+  final equipText = requestedEquip != null
+      ? 'Using your $requestedEquip, this fits right into your setup.'
+      : 'Based on your pantry items and equipment, this uses what you already have.';
 
   return {
     'isUser': false,
@@ -307,24 +361,28 @@ class _AmigoPanelState extends State<_AmigoPanel> {
   String? _toastText;
   int _toastId = 0;
 
-  final List _starterPrompts = const [
-    {
-      'icon': Icons.restaurant_menu_rounded,
-      'text': 'What can I cook tonight with what I have?',
-    },
-    {
-      'icon': Icons.access_time_rounded,
-      'text': 'Give me a 10-minute meal with just a kettle',
-    },
-    {
-      'icon': Icons.autorenew_rounded,
-      'text': "I'm missing cream. What can I swap?",
-    },
-    {
-      'icon': Icons.calendar_today_rounded,
-      'text': 'Plan 3 cheap dinners for this week',
-    },
-  ];
+  List _starterPromptsFor(Set<String> equip) {
+    final primaryEquip =
+        equip.isNotEmpty ? equip.first.toLowerCase() : 'rice cooker';
+    return [
+      {
+        'icon': Icons.restaurant_menu_rounded,
+        'text': 'What can I cook tonight with what I have?',
+      },
+      {
+        'icon': Icons.access_time_rounded,
+        'text': 'Give me a 10-minute meal with just a $primaryEquip',
+      },
+      {
+        'icon': Icons.autorenew_rounded,
+        'text': "I'm missing cream. What can I swap?",
+      },
+      {
+        'icon': Icons.calendar_today_rounded,
+        'text': 'Plan 3 cheap dinners for this week',
+      },
+    ];
+  }
 
   bool get _compact => widget.compact;
 
@@ -427,11 +485,21 @@ class _AmigoPanelState extends State<_AmigoPanel> {
   // Build
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
     final provider = context.watch<PantryProvider>();
+
+    // Reset chat memory if the user switched accounts or logged out
+    _chat.syncUser(auth.isGuest ? null : auth.email);
+
+    final fullName = auth.displayName.trim();
+    final firstName =
+        fullName.isEmpty ? 'Chef' : fullName.split(RegExp(r'\s+')).first;
+
     final items = provider.items;
     final equip = provider.selectedEquipment;
+    final starterPrompts = _starterPromptsFor(equip);
 
-    // Comment 11: Distinguish already-expired items from urgent (0-3 day) items.
+    // Distinguish already-expired items from urgent (0-3 day) items.
     final expired = provider.expiredItems;
     final urgent = provider.urgentItem;
     final String? alertName = urgent?.name.toLowerCase() ??
@@ -456,13 +524,20 @@ class _AmigoPanelState extends State<_AmigoPanel> {
               _buildCompactHeader(isChatMode, items.length),
               Expanded(
                 child: isChatMode
-                    ? _buildChatBody(alertName, alertDays, showQuick: true)
+                    ? _buildChatBody(
+                        alertName,
+                        alertDays,
+                        equip,
+                        showQuick: true,
+                      )
                     : _buildCompactStart(
+                        firstName: firstName,
                         itemCount: items.length,
                         urgentName: alertName,
                         urgentDays: alertDays,
                         isExpired: isAlreadyExpired,
                         equipSummary: equipSummary,
+                        starterPrompts: starterPrompts,
                       ),
               ),
               _buildInputBar(isChatMode),
@@ -473,13 +548,15 @@ class _AmigoPanelState extends State<_AmigoPanel> {
             children: [
               Expanded(
                 child: isChatMode
-                    ? _buildFullChat(items.length, alertName, alertDays)
+                    ? _buildFullChat(items.length, alertName, alertDays, equip)
                     : _buildFullStart(
+                        firstName: firstName,
                         itemCount: items.length,
                         urgentName: alertName,
                         urgentDays: alertDays,
                         isExpired: isAlreadyExpired,
                         equipSummary: equipSummary,
+                        starterPrompts: starterPrompts,
                       ),
               ),
               _buildInputBar(isChatMode),
@@ -611,11 +688,13 @@ class _AmigoPanelState extends State<_AmigoPanel> {
   }
 
   Widget _buildCompactStart({
+    required String firstName,
     required int itemCount,
     required String? urgentName,
     required int urgentDays,
     required bool isExpired,
     required String equipSummary,
+    required List starterPrompts,
   }) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
@@ -640,6 +719,7 @@ class _AmigoPanelState extends State<_AmigoPanel> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _greetingText(
+                      firstName,
                       urgentName,
                       urgentDays,
                       isExpired: isExpired,
@@ -674,18 +754,20 @@ class _AmigoPanelState extends State<_AmigoPanel> {
           ),
         ),
         const SizedBox(height: 8),
-        ..._starterPrompts.map((p) => _promptTile(p, small: true)),
+        ...starterPrompts.map((p) => _promptTile(p, small: true)),
       ],
     );
   }
 
   // FULL SCREEN
   Widget _buildFullStart({
+    required String firstName,
     required int itemCount,
     required String? urgentName,
     required int urgentDays,
     required bool isExpired,
     required String equipSummary,
+    required List starterPrompts,
   }) {
     return ListView(
       padding: EdgeInsets.zero,
@@ -779,6 +861,7 @@ class _AmigoPanelState extends State<_AmigoPanel> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _greetingText(
+                  firstName,
                   urgentName,
                   urgentDays,
                   isExpired: isExpired,
@@ -811,7 +894,7 @@ class _AmigoPanelState extends State<_AmigoPanel> {
           ),
         ),
         const SizedBox(height: 10),
-        ..._starterPrompts.map(
+        ...starterPrompts.map(
           (p) => Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: _promptTile(p, small: false),
@@ -822,7 +905,12 @@ class _AmigoPanelState extends State<_AmigoPanel> {
     );
   }
 
-  Widget _buildFullChat(int itemCount, String? urgentName, int urgentDays) {
+  Widget _buildFullChat(
+    int itemCount,
+    String? urgentName,
+    int urgentDays,
+    Set<String> equip,
+  ) {
     return Column(
       children: [
         Container(
@@ -892,7 +980,7 @@ class _AmigoPanelState extends State<_AmigoPanel> {
           ),
         ),
         Expanded(
-          child: _buildChatBody(urgentName, urgentDays, showQuick: true),
+          child: _buildChatBody(urgentName, urgentDays, equip, showQuick: true),
         ),
       ],
     );
@@ -901,7 +989,8 @@ class _AmigoPanelState extends State<_AmigoPanel> {
   // CHAT BODY (messages + quick replies) — shared
   Widget _buildChatBody(
     String? urgentName,
-    int urgentDays, {
+    int urgentDays,
+    Set<String> equip, {
     required bool showQuick,
   }) {
     final messages = _chat.messages;
@@ -971,7 +1060,10 @@ class _AmigoPanelState extends State<_AmigoPanel> {
                     const SizedBox(width: 8),
                   ],
                   _quickPill('More ideas', () {
-                    _submit('Plan 3 cheap dinners for this week');
+                    final primaryEquip = equip.isNotEmpty
+                        ? equip.first.toLowerCase()
+                        : 'rice cooker';
+                    _submit('Plan 3 cheap dinners using my $primaryEquip');
                   }),
                   if (hasRecipe) ...[
                     const SizedBox(width: 8),
@@ -1301,8 +1393,9 @@ class _AmigoPanelState extends State<_AmigoPanel> {
     );
   }
 
-  // Small widgets — Comment 11: Handle expired items separately from expiring items.
+  // Small widgets — Handle expired items separately from expiring items.
   Widget _greetingText(
+    String firstName,
     String? urgentName,
     int urgentDays, {
     required bool isExpired,
@@ -1321,9 +1414,9 @@ class _AmigoPanelState extends State<_AmigoPanel> {
           height: 1.4,
         ),
         children: [
-          const TextSpan(
-            text: 'Hi Chloe! ',
-            style: TextStyle(fontWeight: FontWeight.w800),
+          TextSpan(
+            text: 'Hi $firstName! ',
+            style: const TextStyle(fontWeight: FontWeight.w800),
           ),
           if (name == null)
             const TextSpan(
