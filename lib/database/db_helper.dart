@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -145,4 +146,26 @@ class DbHelper {
       'updated_at': DateTime.now().toIso8601String(),
     });
   }
+
+  Future<String?> uploadPantryImage(File file) async {
+  final uid = currentUserId;
+  if (uid == null) return null;
+
+  final ext = file.path.split('.').last.toLowerCase();
+  final safeExt = (ext == 'png' || ext == 'webp') ? ext : 'jpg';
+  final storagePath =
+      '$uid/${DateTime.now().millisecondsSinceEpoch}.$safeExt';
+
+  final bytes = await file.readAsBytes();
+  await _client.storage.from('pantry-images').uploadBinary(
+        storagePath,
+        bytes,
+        fileOptions: FileOptions(
+          contentType: 'image/$safeExt',
+          upsert: true,
+        ),
+      );
+
+  return _client.storage.from('pantry-images').getPublicUrl(storagePath);
+}
 }
