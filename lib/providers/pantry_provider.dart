@@ -95,6 +95,8 @@ class PantryProvider extends ChangeNotifier {
     _activeLoadFuture = null;
     _items.clear();
     _locallyAddedIds.clear();
+    _savedRecipeTitles.clear();
+    _shoppingList.clear();
     _selectedEquipment
       ..clear()
       ..addAll({'Rice Cooker', 'Kettle'});
@@ -244,6 +246,27 @@ class PantryProvider extends ChangeNotifier {
     }
   }
 
+  final Map<String, String> _localImageByItemId = {};
+  final Map<String, String> _batchNotesByItemId = {};
+
+  String? imageForItem(PantryItem item) =>
+      item.imagePath ?? _localImageByItemId[item.id];
+
+  String? batchNotesForItem(PantryItem item) =>
+      item.batchNotes ?? _batchNotesByItemId[item.id];
+
+  String _formatDateLabel(DateTime? d) {
+    if (d == null) return 'no expiry';
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return 'exp ${months[d.month - 1]} ${d.day}';
+  }
+
+  String _qtyLabel(double q, String unit) =>
+      '${q % 1 == 0 ? q.toInt() : q} $unit';
+
   Future<void> addNewItem({
     required String name,
     required FoodCategory category,
@@ -251,9 +274,78 @@ class PantryProvider extends ChangeNotifier {
     required String unit,
     DateTime? expiryDate,
     required StorageLocation storageLocation,
+    String? imagePath,
   }) async {
     final generation = _loadGeneration;
     final cleanName = name.trim();
+    final normNew = _normalizeIngredient(cleanName);
+
+    // Check if an active item with the same ingredient name & unit already exists
+    final existingIdx = _items.indexWhere(
+      (i) =>
+          _normalizeIngredient(i.name) == normNew &&
+          i.unit.toLowerCase() == unit.toLowerCase(),
+    );
+
+    if (existingIdx != -1) {
+      final existing = _items[existingIdx];
+      final combinedQty = existing.quantity + quantity;
+
+      // Pick the earliest (soonest) expiry date so alerts fire accurately
+      DateTime? mergedExpiry;
+      if (existing.expiryDate == null) {
+        mergedExpiry = expiryDate;
+      } else if (expiryDate == null) {
+        mergedExpiry = existing.expiryDate;
+      } else {
+        mergedExpiry = existing.expiryDate!.isBefore(expiryDate)
+            ? existing.expiryDate
+            : expiryDate;
+      }
+
+      // Build graceful batch summary if the two entries have different expiry dates
+      final existingDay = existing.expiryDate?.toIso8601String().split('T').first;
+      final newDay = expiryDate?.toIso8601String().split('T').first;
+      String? updatedNotes = batchNotesForItem(existing);
+
+      if (existingDay != newDay) {
+        final prevSummary = updatedNotes ??
+            '${_qtyLabel(existing.quantity, existing.unit)} (${_formatDateLabel(existing.expiryDate)})';
+        final addedSummary =
+            '${_qtyLabel(quantity, unit)} (${_formatDateLabel(expiryDate)})';
+        updatedNotes = '$prevSummary · $addedSummary';
+      }
+
+      final resolvedImage = imagePath ?? imageForItem(existing);
+
+      await updateItem(
+        id: existing.id,
+        name: existing.name,
+        category: existing.category,
+        quantity: combinedQty,
+        unit: existing.unit,
+        expiryDate: mergedExpiry,
+        clearExpiry: mergedExpiry == null,
+        storageLocation: existing.storageLocation,
+      );
+
+      final refreshedIdx = _items.indexWhere((i) => i.id == existing.id);
+      if (refreshedIdx != -1) {
+        if (resolvedImage != null) {
+          _localImageByItemId[existing.id] = resolvedImage;
+        }
+        if (updatedNotes != null) {
+          _batchNotesByItemId[existing.id] = updatedNotes;
+        }
+        _items[refreshedIdx] = _items[refreshedIdx].copyWith(
+          imagePath: resolvedImage,
+          batchNotes: updatedNotes,
+        );
+        notifyListeners();
+      }
+      return;
+    }
+
     final expiryStr = expiryDate?.toIso8601String().split('T').first;
 
     if (_hasAuthenticatedUser) {
@@ -267,7 +359,12 @@ class PantryProvider extends ChangeNotifier {
           'storage_location': storageLocation.name,
         });
         if (generation != _loadGeneration) return;
-        final item = PantryItem.fromMap(inserted);
+        final item = PantryItem.fromMap(inserted).copyWith(
+          imagePath: imagePath,
+        );
+        if (imagePath != null) {
+          _localImageByItemId[item.id] = imagePath;
+        }
         _locallyAddedIds.add(item.id);
         _items.add(item);
       } catch (_) {
@@ -279,7 +376,10 @@ class PantryProvider extends ChangeNotifier {
             r.quantity == quantity &&
             r.unit == unit);
         if (matches.isNotEmpty) {
-          final existing = matches.last;
+          final existing = matches.last.copyWith(imagePath: imagePath);
+          if (imagePath != null) {
+            _localImageByItemId[existing.id] = imagePath;
+          }
           if (!_items.any((i) => i.id == existing.id)) {
             _locallyAddedIds.add(existing.id);
             _items.add(existing);
@@ -298,11 +398,107 @@ class PantryProvider extends ChangeNotifier {
         unit: unit,
         expiryDate: expiryDate,
         storageLocation: storageLocation,
+        imagePath: imagePath,
       );
+      if (imagePath != null) {
+        _localImageByItemId[localItem.id] = imagePath;
+      }
       _locallyAddedIds.add(localItem.id);
       _items.add(localItem);
     }
     notifyListeners();
+  }
+
+  Future<void> updateItem({
+    required String id,
+    required String name,
+    required FoodCategory category,
+    required double quantity,
+    required String unit,
+    DateTime? expiryDate,
+    bool clearExpiry = false,
+    required StorageLocation storageLocation,
+  }) async {
+    final generation = _loadGeneration;
+    final cleanName = name.trim();
+    final index = _items.indexWhere((i) => i.id == id);
+    if (index == -1) return;
+
+    final updatedLocal = _items[index].copyWith(
+      name: cleanName,
+      category: category,
+      quantity: quantity,
+      unit: unit,
+      expiryDate: expiryDate,
+      clearExpiry: clearExpiry,
+      storageLocation: storageLocation,
+    );
+
+    if (_hasAuthenticatedUser) {
+      final expiryStr = clearExpiry
+          ? null
+          : updatedLocal.expiryDate?.toIso8601String().split('T').first;
+      final row = await DbHelper.instance.updatePantryItem(id, {
+        'name': cleanName,
+        'category': category.name,
+        'quantity': quantity,
+        'unit': unit,
+        'expiry_date': expiryStr,
+        'storage_location': storageLocation.name,
+      });
+      if (generation != _loadGeneration) return;
+      final refreshedIndex = _items.indexWhere((i) => i.id == id);
+      if (refreshedIndex != -1) {
+        _items[refreshedIndex] = PantryItem.fromMap(row);
+      }
+    } else {
+      _items[index] = updatedLocal;
+    }
+    notifyListeners();
+  }
+
+  Future<void> deleteItem(String id) async {
+    final generation = _loadGeneration;
+    final index = _items.indexWhere((i) => i.id == id);
+    if (index == -1) return;
+
+    final removed = _items.removeAt(index);
+    _locallyAddedIds.remove(id);
+    notifyListeners();
+
+    if (_hasAuthenticatedUser) {
+      try {
+        await DbHelper.instance.deletePantryItem(id);
+      } catch (e) {
+        if (generation == _loadGeneration) {
+          _items.insert(index.clamp(0, _items.length), removed);
+          notifyListeners();
+        }
+        rethrow;
+      }
+    }
+  }
+
+  Future<void> resolveItemStatus(String id, String status) async {
+    final generation = _loadGeneration;
+    final index = _items.indexWhere((i) => i.id == id);
+    if (index == -1) return;
+
+    final removed = _items.removeAt(index);
+    _locallyAddedIds.remove(id);
+    notifyListeners();
+
+    if (_hasAuthenticatedUser) {
+      try {
+        await DbHelper.instance.updateItemStatus(id, status);
+      } catch (e) {
+        if (generation == _loadGeneration) {
+          _items.insert(index.clamp(0, _items.length), removed);
+          notifyListeners();
+        }
+        rethrow;
+      }
+    }
   }
 
   Future<void> updateEquipment(Set<String> equipment) async {

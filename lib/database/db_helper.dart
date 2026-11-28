@@ -60,12 +60,33 @@ class DbHelper {
     return JsonMap.from(response);
   }
 
+  Future<JsonMap> updatePantryItem(String itemId, JsonMap data) async {
+    final uid = await requireAuthenticatedUserId();
+    final response = await _client
+        .from('pantry_items')
+        .update(data)
+        .eq('id', itemId)
+        .eq('user_id', uid)
+        .select()
+        .single();
+    return JsonMap.from(response);
+  }
+
   Future<void> updateItemStatus(String itemId, String status) async {
     final uid = await requireAuthenticatedUserId();
     // status: 'consumed' (saved!) or 'discarded' (wasted)
     await _client
         .from('pantry_items')
         .update({'status': status})
+        .eq('id', itemId)
+        .eq('user_id', uid);
+  }
+
+  Future<void> deletePantryItem(String itemId) async {
+    final uid = await requireAuthenticatedUserId();
+    await _client
+        .from('pantry_items')
+        .delete()
         .eq('id', itemId)
         .eq('user_id', uid);
   }

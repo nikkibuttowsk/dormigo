@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
@@ -17,6 +19,55 @@ class PantryScreen extends StatefulWidget {
 class _PantryScreenState extends State<PantryScreen> {
   String _searchQuery = '';
   FoodCategory? _selectedCategory; // null = All
+
+  void _openItemFormSheet({PantryItem? existing}) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => _PantryItemFormSheet(existing: existing),
+    );
+  }
+
+  Future<void> _confirmAndDelete(PantryItem item) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Item'),
+        content: Text('Remove "${item.name}" from your pantry?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.alertText),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await context.read<PantryProvider>().deleteItem(item.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Removed ${item.name} from pantry')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not delete item: $e')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +89,7 @@ class _PantryScreenState extends State<PantryScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header Row: "My Pantry" + Expiry Tracker icon + Equipment Filter icon
+            // Header Row: "My Pantry" + Add button + Expiry Tracker + Equipment Filter
             Row(
               children: [
                 const Expanded(
@@ -51,6 +102,13 @@ class _PantryScreenState extends State<PantryScreen> {
                     ),
                   ),
                 ),
+                _CircleIconBtn(
+                  icon: Icons.add_rounded,
+                  tooltip: 'Add Item',
+                  filled: true,
+                  onTap: () => _openItemFormSheet(),
+                ),
+                const SizedBox(width: 8),
                 _CircleIconBtn(
                   icon: Icons.schedule_rounded,
                   tooltip: 'Expiry Tracker',
@@ -148,11 +206,22 @@ class _PantryScreenState extends State<PantryScreen> {
                           ),
                           const SizedBox(height: 4),
                           const Text(
-                            'Tap the green + button below to add ingredients!',
+                            'Tap the + button to add your first ingredient!',
                             style: TextStyle(
                               fontSize: 13,
                               color: AppColors.textMuted,
                             ),
+                          ),
+                          const SizedBox(height: 14),
+                          ElevatedButton.icon(
+                            onPressed: () => _openItemFormSheet(),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.green,
+                              foregroundColor: Colors.white,
+                              shape: const StadiumBorder(),
+                            ),
+                            icon: const Icon(Icons.add_rounded, size: 18),
+                            label: const Text('Add Ingredient'),
                           ),
                         ],
                       ),
@@ -165,10 +234,15 @@ class _PantryScreenState extends State<PantryScreen> {
                             crossAxisCount: 2,
                             crossAxisSpacing: 12,
                             mainAxisSpacing: 12,
-                            childAspectRatio: 0.86,
+                            childAspectRatio: 0.80,
                           ),
                       itemBuilder: (context, index) {
-                        return _PantryItemCard(item: filtered[index]);
+                        final item = filtered[index];
+                        return _PantryItemCard(
+                          item: item,
+                          onTap: () => _openItemFormSheet(existing: item),
+                          onDelete: () => _confirmAndDelete(item),
+                        );
                       },
                     ),
             ),
@@ -181,11 +255,26 @@ class _PantryScreenState extends State<PantryScreen> {
 
 class _PantryItemCard extends StatelessWidget {
   final PantryItem item;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
 
-  const _PantryItemCard({required this.item});
+  const _PantryItemCard({
+    required this.item,
+    required this.onTap,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<PantryProvider>();
+    final imgPath = provider.imageForItem(item);
+    final batchNotes = provider.batchNotesForItem(item);
+    final hasLocalFile =
+        imgPath != null &&
+        !imgPath.startsWith('http') &&
+        File(imgPath).existsSync();
+    final hasNetworkImg = imgPath != null && imgPath.startsWith('http');
+
     final status = item.expiryStatus;
     final isUrgent =
         status == ExpiryStatus.useFirst || status == ExpiryStatus.expired;
@@ -211,70 +300,141 @@ class _PantryItemCard extends StatelessWidget {
         ? 'Use first · ${days}d'
         : '$days days left';
 
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isUrgent
-              ? AppColors.alertText.withValues(alpha: 0.5)
-              : Colors.transparent,
-          width: 1.5,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isUrgent
+                ? AppColors.alertText.withValues(alpha: 0.5)
+                : Colors.transparent,
+            width: 1.5,
+          ),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: isUrgent
-                    ? AppColors.alertBg.withValues(alpha: 0.45)
-                    : AppColors.cream,
-                borderRadius: BorderRadius.circular(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Stack(
+                children: [
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: isUrgent
+                          ? AppColors.alertBg.withValues(alpha: 0.45)
+                          : AppColors.cream,
+                      borderRadius: BorderRadius.circular(14),
+                      image: hasLocalFile
+                          ? DecorationImage(
+                              image: FileImage(File(imgPath)),
+                              fit: BoxFit.cover,
+                            )
+                          : hasNetworkImg
+                          ? DecorationImage(
+                              image: NetworkImage(imgPath),
+                              fit: BoxFit.cover,
+                            )
+                          : null,
+                    ),
+                    alignment: Alignment.center,
+                    child: (!hasLocalFile && !hasNetworkImg)
+                        ? Text(
+                            _emojiForItem(item),
+                            style: const TextStyle(fontSize: 36),
+                          )
+                        : null,
+                  ),
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: InkWell(
+                      onTap: onDelete,
+                      borderRadius: BorderRadius.circular(14),
+                      child: Container(
+                        padding: const EdgeInsets.all(5),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.delete_outline_rounded,
+                          size: 16,
+                          color: AppColors.alertText,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              alignment: Alignment.center,
-              child: Text(
-                _emojiForItem(item),
-                style: const TextStyle(fontSize: 36),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              item.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textDark,
               ),
             ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            item.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textDark,
+            const SizedBox(height: 2),
+            Text(
+              '${item.quantity % 1 == 0 ? item.quantity.toInt() : item.quantity} ${item.unit} · ${item.storageLabel}',
+              style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
             ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            '${item.quantity % 1 == 0 ? item.quantity.toInt() : item.quantity} ${item.unit}',
-            style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: badgeBg,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              badgeLabel,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: badgeText,
+            if (batchNotes != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                batchNotes,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 10.5,
+                  color: AppColors.green,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
+            ],
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: badgeBg,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      badgeLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: badgeText,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                const Icon(
+                  Icons.edit_outlined,
+                  size: 14,
+                  color: AppColors.textMuted,
+                ),
+              ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -287,6 +447,7 @@ class _PantryItemCard extends StatelessWidget {
     if (lower.contains('carrot')) return '🥕';
     if (lower.contains('milk')) return '🥛';
     if (lower.contains('chicken')) return '🍗';
+    if (lower.contains('siomai')) return '🥟';
     switch (item.category) {
       case FoodCategory.vegetables:
         return '🥬';
@@ -299,6 +460,413 @@ class _PantryItemCard extends StatelessWidget {
       case FoodCategory.other:
         return '🥫';
     }
+  }
+}
+
+class _PantryItemFormSheet extends StatefulWidget {
+  final PantryItem? existing;
+
+  const _PantryItemFormSheet({this.existing});
+
+  @override
+  State<_PantryItemFormSheet> createState() => _PantryItemFormSheetState();
+}
+
+class _PantryItemFormSheetState extends State<_PantryItemFormSheet> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameCtrl;
+  late final TextEditingController _qtyCtrl;
+  late FoodCategory _category;
+  late StorageLocation _storage;
+  late String _unit;
+  DateTime? _expiryDate;
+  bool _saving = false;
+
+  static const List<String> _units = ['pcs', 'g', 'kg', 'mL', 'L', 'pack'];
+
+  bool get _isEditing => widget.existing != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.existing;
+    _nameCtrl = TextEditingController(text: e?.name ?? '');
+    _qtyCtrl = TextEditingController(
+      text: e == null
+          ? '1'
+          : (e.quantity % 1 == 0
+                ? e.quantity.toInt().toString()
+                : e.quantity.toString()),
+    );
+    _category = e?.category ?? FoodCategory.vegetables;
+    _storage = e?.storageLocation ?? StorageLocation.fridge;
+    _unit = (e != null && _units.contains(e.unit)) ? e.unit : 'pcs';
+    _expiryDate = e?.expiryDate;
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _qtyCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickExpiryDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _expiryDate ?? now.add(const Duration(days: 5)),
+      firstDate: now.subtract(const Duration(days: 30)),
+      lastDate: now.add(const Duration(days: 365 * 3)),
+    );
+    if (picked != null) {
+      setState(() => _expiryDate = picked);
+    }
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate() || _saving) return;
+    setState(() => _saving = true);
+
+    final provider = context.read<PantryProvider>();
+    final qty = double.tryParse(_qtyCtrl.text.trim()) ?? 1;
+
+    try {
+      if (_isEditing) {
+        await provider.updateItem(
+          id: widget.existing!.id,
+          name: _nameCtrl.text.trim(),
+          category: _category,
+          quantity: qty,
+          unit: _unit,
+          expiryDate: _expiryDate,
+          clearExpiry: _expiryDate == null,
+          storageLocation: _storage,
+        );
+      } else {
+        await provider.addNewItem(
+          name: _nameCtrl.text.trim(),
+          category: _category,
+          quantity: qty,
+          unit: _unit,
+          expiryDate: _expiryDate,
+          storageLocation: _storage,
+        );
+      }
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _isEditing
+                ? 'Updated ${_nameCtrl.text.trim()}'
+                : 'Added ${_nameCtrl.text.trim()} to pantry',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save item: $e')),
+      );
+    }
+  }
+
+  Future<void> _deleteFromSheet() async {
+    if (!_isEditing || _saving) return;
+    setState(() => _saving = true);
+    final item = widget.existing!;
+    try {
+      await context.read<PantryProvider>().deleteItem(item.id);
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Removed ${item.name} from pantry')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to delete item: $e')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final batchNotes = _isEditing
+        ? context.read<PantryProvider>().batchNotesForItem(widget.existing!)
+        : null;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 4, 20, bottomInset + 24),
+      child: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _isEditing ? 'Edit Ingredient' : 'Add Ingredient',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                  ),
+                  if (_isEditing)
+                    IconButton(
+                      onPressed: _saving ? null : _deleteFromSheet,
+                      tooltip: 'Delete item',
+                      icon: const Icon(
+                        Icons.delete_outline_rounded,
+                        color: AppColors.alertText,
+                      ),
+                    ),
+                ],
+              ),
+              if (batchNotes != null) ...[
+                const SizedBox(height: 6),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.paleGreen,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    'Combined batches: $batchNotes',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.green,
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 14),
+
+              // Item Name
+              TextFormField(
+                controller: _nameCtrl,
+                textCapitalization: TextCapitalization.words,
+                decoration: InputDecoration(
+                  labelText: 'Ingredient Name',
+                  hintText: 'e.g., Eggs, Chicken Breast, Rice',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                validator: (val) => (val == null || val.trim().isEmpty)
+                    ? 'Enter an ingredient name'
+                    : null,
+              ),
+              const SizedBox(height: 12),
+
+              // Quantity + Unit Row
+              Row(
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: TextFormField(
+                      controller: _qtyCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: 'Quantity',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      validator: (val) {
+                        final parsed = double.tryParse(val?.trim() ?? '');
+                        if (parsed == null || parsed <= 0) {
+                          return 'Enter > 0';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 2,
+                    child: DropdownButtonFormField<String>(
+                      initialValue: _unit,
+                      decoration: InputDecoration(
+                        labelText: 'Unit',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      items: _units
+                          .map(
+                            (u) => DropdownMenuItem(value: u, child: Text(u)),
+                          )
+                          .toList(),
+                      onChanged: (val) {
+                        if (val != null) setState(() => _unit = val);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Category + Storage Row
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<FoodCategory>(
+                      initialValue: _category,
+                      decoration: InputDecoration(
+                        labelText: 'Category',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      items: FoodCategory.values
+                          .map(
+                            (c) => DropdownMenuItem(
+                              value: c,
+                              child: Text(
+                                c.name[0].toUpperCase() + c.name.substring(1),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (val) {
+                        if (val != null) setState(() => _category = val);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: DropdownButtonFormField<StorageLocation>(
+                      initialValue: _storage,
+                      decoration: InputDecoration(
+                        labelText: 'Storage',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      items: StorageLocation.values
+                          .map(
+                            (s) => DropdownMenuItem(
+                              value: s,
+                              child: Text(
+                                s.name[0].toUpperCase() + s.name.substring(1),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (val) {
+                        if (val != null) setState(() => _storage = val);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Expiry Date Picker
+              InkWell(
+                onTap: _pickExpiryDate,
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 14,
+                  ),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade400),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.event_available_rounded,
+                        color: AppColors.green,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _expiryDate == null
+                              ? 'Expiry Date (Optional)'
+                              : 'Expires: ${_expiryDate!.year}-${_expiryDate!.month.toString().padLeft(2, '0')}-${_expiryDate!.day.toString().padLeft(2, '0')}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: _expiryDate == null
+                                ? AppColors.textMuted
+                                : AppColors.textDark,
+                            fontWeight: _expiryDate == null
+                                ? FontWeight.w500
+                                : FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      if (_expiryDate != null)
+                        GestureDetector(
+                          onTap: () => setState(() => _expiryDate = null),
+                          child: const Icon(
+                            Icons.close_rounded,
+                            size: 18,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+
+              // Save Button
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: _saving ? null : _save,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.green,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: _saving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(
+                          _isEditing ? 'Save Changes' : 'Add to Pantry',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -341,11 +909,13 @@ class _CircleIconBtn extends StatelessWidget {
   final IconData icon;
   final String tooltip;
   final VoidCallback onTap;
+  final bool filled;
 
   const _CircleIconBtn({
     required this.icon,
     required this.tooltip,
     required this.onTap,
+    this.filled = false,
   });
 
   @override
@@ -359,11 +929,17 @@ class _CircleIconBtn extends StatelessWidget {
           width: 42,
           height: 42,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: filled ? AppColors.green : Colors.white,
             shape: BoxShape.circle,
-            border: Border.all(color: AppColors.lightGreen),
+            border: Border.all(
+              color: filled ? AppColors.green : AppColors.lightGreen,
+            ),
           ),
-          child: Icon(icon, size: 20, color: AppColors.textDark),
+          child: Icon(
+            icon,
+            size: 20,
+            color: filled ? Colors.white : AppColors.textDark,
+          ),
         ),
       ),
     );
