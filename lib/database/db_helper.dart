@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -17,7 +18,6 @@ class DbHelper {
   }
 
   /// Ensures a signed-in (non-anonymous) user and user_profiles row exist.
-  /// Never calls signInAnonymously() so guests stay strictly local.
   Future<String> requireAuthenticatedUserId() async {
     final uid = currentUserId;
     if (uid == null) {
@@ -31,6 +31,12 @@ class DbHelper {
     );
 
     return uid;
+  }
+
+  bool _isMissingImageColumnError(Object error) {
+    final msg = error.toString().toLowerCase();
+    return msg.contains('image_url') &&
+        (msg.contains('column') || msg.contains('schema cache'));
   }
 
   // --- PANTRY CRUD ---
@@ -52,17 +58,57 @@ class DbHelper {
       'user_id': uid,
       'status': 'active',
     };
-    final response = await _client
-        .from('pantry_items')
-        .insert(payload)
-        .select()
-        .single();
-    return JsonMap.from(response);
+    try {
+      final response = await _client
+          .from('pantry_items')
+          .insert(payload)
+          .select()
+          .single();
+      return JsonMap.from(response);
+    } catch (e) {
+      if (payload.containsKey('image_url') && _isMissingImageColumnError(e)) {
+        final fallback = Map<String, dynamic>.from(payload)
+          ..remove('image_url');
+        final response = await _client
+            .from('pantry_items')
+            .insert(fallback)
+            .select()
+            .single();
+        return JsonMap.from(response);
+      }
+      rethrow;
+    }
+  }
+
+  Future<JsonMap> updatePantryItem(String itemId, JsonMap data) async {
+    final uid = await requireAuthenticatedUserId();
+    try {
+      final response = await _client
+          .from('pantry_items')
+          .update(data)
+          .eq('id', itemId)
+          .eq('user_id', uid)
+          .select()
+          .single();
+      return JsonMap.from(response);
+    } catch (e) {
+      if (data.containsKey('image_url') && _isMissingImageColumnError(e)) {
+        final fallback = Map<String, dynamic>.from(data)..remove('image_url');
+        final response = await _client
+            .from('pantry_items')
+            .update(fallback)
+            .eq('id', itemId)
+            .eq('user_id', uid)
+            .select()
+            .single();
+        return JsonMap.from(response);
+      }
+      rethrow;
+    }
   }
 
   Future<void> updateItemStatus(String itemId, String status) async {
     final uid = await requireAuthenticatedUserId();
-    // status: 'consumed' (saved!) or 'discarded' (wasted)
     await _client
         .from('pantry_items')
         .update({'status': status})
@@ -70,7 +116,16 @@ class DbHelper {
         .eq('user_id', uid);
   }
 
-  // --- EQUIPMENT (Screen 08) ---
+  Future<void> deletePantryItem(String itemId) async {
+    final uid = await requireAuthenticatedUserId();
+    await _client
+        .from('pantry_items')
+        .delete()
+        .eq('id', itemId)
+        .eq('user_id', uid);
+  }
+
+  // --- EQUIPMENT ---
   Future<List<String>> fetchUserEquipment() async {
     final uid = await requireAuthenticatedUserId();
     final response = await _client
@@ -91,4 +146,26 @@ class DbHelper {
       'updated_at': DateTime.now().toIso8601String(),
     });
   }
+
+  Future<String?> uploadPantryImage(File file) async {
+  final uid = currentUserId;
+  if (uid == null) return null;
+
+  final ext = file.path.split('.').last.toLowerCase();
+  final safeExt = (ext == 'png' || ext == 'webp') ? ext : 'jpg';
+  final storagePath =
+      '$uid/${DateTime.now().millisecondsSinceEpoch}.$safeExt';
+
+  final bytes = await file.readAsBytes();
+  await _client.storage.from('pantry-images').uploadBinary(
+        storagePath,
+        bytes,
+        fileOptions: FileOptions(
+          contentType: 'image/$safeExt',
+          upsert: true,
+        ),
+      );
+
+  return _client.storage.from('pantry-images').getPublicUrl(storagePath);
+}
 }

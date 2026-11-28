@@ -359,6 +359,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final itemCount = provider.items.length;
     final equipCount = provider.selectedEquipment.length;
     final avatarProvider = _avatarImageProvider(auth.avatarUrl);
+    final savedRecipeCount = provider.savedRecipeTitles.length;
 
     return Scaffold(
       backgroundColor: AppColors.cream,
@@ -626,7 +627,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _menuTile(
                       icon: Icons.bookmark_border_rounded,
                       title: 'Saved Recipes',
-                      trailingText: '8',
+                      trailingText: '$savedRecipeCount',
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(

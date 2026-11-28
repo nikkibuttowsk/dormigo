@@ -34,6 +34,28 @@ class _ExpiryTrackerScreenState extends State<ExpiryTrackerScreen> {
     return 'Exp: ${months[date.month - 1]} ${date.day}';
   }
 
+  Future<void> _handleItemAction(PantryItem item, String status) async {
+    final provider = context.read<PantryProvider>();
+    try {
+      await provider.resolveItemStatus(item.id, status);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            status == 'consumed'
+                ? 'Marked ${item.name} as used!'
+                : 'Removed ${item.name} from active pantry',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update ${item.name}: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<PantryProvider>();
@@ -187,8 +209,8 @@ class _ExpiryTrackerScreenState extends State<ExpiryTrackerScreen> {
                           SizedBox(
                             height: 36,
                             child: ElevatedButton(
-                              onPressed: () {
-                              },
+                              onPressed: () =>
+                                  _handleItemAction(urgent, 'consumed'),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.alertText,
                                 minimumSize: const Size(0, 36),
@@ -198,7 +220,7 @@ class _ExpiryTrackerScreenState extends State<ExpiryTrackerScreen> {
                                 elevation: 0,
                               ),
                               child: Text(
-                                'Cook with ${urgent.name.toLowerCase()}',
+                                'Mark ${urgent.name.toLowerCase()} used',
                                 style: const TextStyle(fontSize: 12),
                               ),
                             ),
@@ -292,7 +314,7 @@ class _ExpiryTrackerScreenState extends State<ExpiryTrackerScreen> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              '${_formatShortDate(item.expiryDate)} · ${item.quantity.toInt()} ${item.unit}',
+                              '${_formatShortDate(item.expiryDate)} · ${item.quantity % 1 == 0 ? item.quantity.toInt() : item.quantity} ${item.unit}',
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: AppColors.textMuted,
@@ -313,7 +335,7 @@ class _ExpiryTrackerScreenState extends State<ExpiryTrackerScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
@@ -334,6 +356,28 @@ class _ExpiryTrackerScreenState extends State<ExpiryTrackerScreen> {
                             fontWeight: FontWeight.w800,
                             color: textColor,
                           ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      if (_selectedFilter != 2)
+                        IconButton(
+                          tooltip: 'Mark as used',
+                          visualDensity: VisualDensity.compact,
+                          onPressed: () => _handleItemAction(item, 'consumed'),
+                          icon: const Icon(
+                            Icons.check_circle_outline_rounded,
+                            color: AppColors.green,
+                            size: 20,
+                          ),
+                        ),
+                      IconButton(
+                        tooltip: 'Discard item',
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () => _handleItemAction(item, 'discarded'),
+                        icon: const Icon(
+                          Icons.delete_outline_rounded,
+                          color: AppColors.alertText,
+                          size: 20,
                         ),
                       ),
                     ],

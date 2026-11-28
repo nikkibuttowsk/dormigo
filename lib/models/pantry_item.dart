@@ -13,6 +13,7 @@ class PantryItem {
   final DateTime? expiryDate;
   final StorageLocation storageLocation;
   final DateTime addedAt;
+  final String? imagePath;
 
   PantryItem({
     required this.id,
@@ -23,6 +24,7 @@ class PantryItem {
     this.expiryDate,
     this.storageLocation = StorageLocation.shelf,
     DateTime? addedAt,
+    this.imagePath,
   }) : addedAt = addedAt ?? DateTime.now();
 
   /// Calculates remaining days until expiration (negative if expired)
@@ -39,12 +41,11 @@ class PantryItem {
     final days = daysUntilExpiry;
     if (days == null) return ExpiryStatus.noDate;
     if (days < 0) return ExpiryStatus.expired;
-    if (days <= 2) return ExpiryStatus.useFirst; // Red "Use first · 2d"
-    if (days <= 5) return ExpiryStatus.expiringSoon; // Amber "3 days left"
-    return ExpiryStatus.fresh; // Green "7 days left" / "Fresh"
+    if (days <= 2) return ExpiryStatus.useFirst;
+    if (days <= 5) return ExpiryStatus.expiringSoon;
+    return ExpiryStatus.fresh;
   }
 
-  /// Helper for UI labels
   String get categoryLabel {
     switch (category) {
       case FoodCategory.vegetables:
@@ -79,6 +80,7 @@ class PantryItem {
     DateTime? expiryDate,
     bool clearExpiry = false,
     StorageLocation? storageLocation,
+    String? imagePath,
   }) {
     return PantryItem(
       id: id,
@@ -89,6 +91,7 @@ class PantryItem {
       expiryDate: clearExpiry ? null : (expiryDate ?? this.expiryDate),
       storageLocation: storageLocation ?? this.storageLocation,
       addedAt: addedAt,
+      imagePath: imagePath ?? this.imagePath,
     );
   }
 
@@ -102,12 +105,13 @@ class PantryItem {
       'expiry_date': expiryDate?.toIso8601String(),
       'storage_location': storageLocation.name,
       'added_at': addedAt.toIso8601String(),
+      if (imagePath != null) 'image_url': imagePath,
     };
   }
 
   factory PantryItem.fromMap(Map<String, dynamic> map) {
     return PantryItem(
-      id: map['id'],
+      id: map['id'].toString(),
       name: map['name'],
       category: FoodCategory.values.firstWhere(
         (e) => e.name == map['category'],
@@ -125,6 +129,7 @@ class PantryItem {
       addedAt: map['added_at'] != null
           ? DateTime.parse(map['added_at'])
           : DateTime.now(),
+      imagePath: map['image_url'] as String?,
     );
   }
 }
