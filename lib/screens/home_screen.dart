@@ -38,7 +38,12 @@ class _HomeScreenState extends State<HomeScreen> {
   static const _homeRecipeTitle = 'Creamy Egg Fried Rice';
 
   // Notifications
-  List<_NotificationItem> _buildNotifications(PantryProvider pantry) {
+  List<_NotificationItem> _buildNotifications(
+    PantryProvider pantry, {
+    required bool notificationsOn,
+  }) {
+    if (!notificationsOn) return const [];
+
     final alerts = <PantryItem>[
       ...pantry.expiredItems,
       ...pantry.expiringThisWeek.where((i) => (i.daysUntilExpiry ?? 99) <= 3),
@@ -133,7 +138,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _openNotifications() {
-    final notifications = _buildNotifications(context.read<PantryProvider>());
+    final notificationsOn = context.read<AuthProvider>().notificationsOn;
+    final notifications = _buildNotifications(
+      context.read<PantryProvider>(),
+      notificationsOn: notificationsOn,
+    );
     setState(() => _hasUnread = false);
     showModalBottomSheet<void>(
       context: context,
@@ -152,7 +161,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   const _SectionTitle('Notifications'),
                   const SizedBox(height: 8),
-                  if (notifications.isEmpty)
+                  if (!notificationsOn)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(
+                        child: Text(
+                          'Notifications are turned off in Profile.',
+                          style: TextStyle(color: AppColors.textMuted),
+                        ),
+                      ),
+                    )
+                  else if (notifications.isEmpty)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 24),
                       child: Center(
@@ -350,7 +369,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildHeader(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final pantry = context.watch<PantryProvider>();
-    final hasAlerts = _buildNotifications(pantry).isNotEmpty;
+    final hasAlerts = _buildNotifications(
+      pantry,
+      notificationsOn: auth.notificationsOn,
+    ).isNotEmpty;
 
     final fullName = auth.displayName.trim();
     final firstName =
@@ -410,8 +432,12 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: _openNotifications,
             icon: Badge(
               smallSize: 8,
-              isLabelVisible: _hasUnread && hasAlerts,
-              child: const Icon(Icons.notifications_none),
+              isLabelVisible: auth.notificationsOn && _hasUnread && hasAlerts,
+              child: Icon(
+                auth.notificationsOn
+                    ? Icons.notifications_none
+                    : Icons.notifications_off_outlined,
+              ),
             ),
           ),
         ),
