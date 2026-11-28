@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
@@ -8,6 +9,7 @@ import '../providers/pantry_provider.dart';
 import '../utils/theme.dart';
 import '../widgets/placeholder_screen.dart';
 import 'amigo_screen.dart';
+import 'dorm_equipment_screen.dart';
 import 'expiry_tracker_screen.dart';
 
 /// Figma screen 03.
@@ -55,17 +57,61 @@ class _HomeScreenState extends State<HomeScreen> {
           icon: (item.daysUntilExpiry ?? 0) < 0
               ? Icons.error_outline_rounded
               : Icons.warning_amber_rounded,
+          iconColor: (item.daysUntilExpiry ?? 0) < 0
+              ? AppColors.alertText
+              : const Color(0xFF9E6B00),
+          badgeBg: (item.daysUntilExpiry ?? 0) < 0
+              ? AppColors.alertBg
+              : const Color(0xFFF6E2B3),
           title: titleFor(item),
           subtitle: (item.daysUntilExpiry ?? 0) < 0
-              ? 'Expired — check safety or discard'
-              : 'Use it first!',
+              ? 'Expired — tap to review in Expiry Tracker'
+              : 'Use it first — tap to manage',
+          target: _NotificationTarget.expiryTracker,
+        ),
+      if (pantry.items.isEmpty)
+        const _NotificationItem(
+          icon: Icons.shopping_basket_outlined,
+          title: 'Your pantry is empty',
+          subtitle: 'Tap to open My Pantry and add ingredients',
+          target: _NotificationTarget.pantry,
+        ),
+      if (pantry.selectedEquipment.length <= 2)
+        const _NotificationItem(
+          icon: Icons.tune_rounded,
+          title: 'Set up your dorm equipment',
+          subtitle: 'Update appliances to unlock matching recipes',
+          target: _NotificationTarget.equipment,
         ),
       const _NotificationItem(
         icon: Icons.soup_kitchen_outlined,
         title: 'New recipe for you',
         subtitle: 'Creamy Egg Fried Rice · 15 min',
+        target: _NotificationTarget.recipe,
       ),
     ];
+  }
+
+  void _handleNotificationTap(
+    BuildContext sheetContext,
+    _NotificationItem notification,
+  ) {
+    Navigator.pop(sheetContext);
+
+    switch (notification.target) {
+      case _NotificationTarget.expiryTracker:
+        _push(const ExpiryTrackerScreen());
+        break;
+      case _NotificationTarget.pantry:
+        widget.onOpenTab(1);
+        break;
+      case _NotificationTarget.equipment:
+        _push(const DormEquipmentScreen());
+        break;
+      case _NotificationTarget.recipe:
+        widget.onOpenTab(2);
+        break;
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -92,42 +138,71 @@ class _HomeScreenState extends State<HomeScreen> {
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
       builder: (sheetContext) {
+        final maxHeight = MediaQuery.of(sheetContext).size.height * 0.65;
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const _SectionTitle('Notifications'),
-                const SizedBox(height: 8),
-                if (notifications.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
-                    child: Center(
-                      child: Text(
-                        "You're all caught up!",
-                        style: TextStyle(color: AppColors.textMuted),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: maxHeight),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const _SectionTitle('Notifications'),
+                  const SizedBox(height: 8),
+                  if (notifications.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(
+                        child: Text(
+                          "You're all caught up!",
+                          style: TextStyle(color: AppColors.textMuted),
+                        ),
+                      ),
+                    )
+                  else
+                    Flexible(
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: notifications.length,
+                        separatorBuilder: (_, _) => const Divider(height: 1),
+                        itemBuilder: (_, index) {
+                          final n = notifications[index];
+                          return ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 2,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            onTap: () =>
+                                _handleNotificationTap(sheetContext, n),
+                            leading: CircleAvatar(
+                              backgroundColor: n.badgeBg ?? AppColors.paleGreen,
+                              child: Icon(
+                                n.icon,
+                                color: n.iconColor ?? AppColors.green,
+                              ),
+                            ),
+                            title: Text(
+                              n.title,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            subtitle: Text(n.subtitle),
+                            trailing: const Icon(
+                              Icons.chevron_right_rounded,
+                              color: AppColors.textMuted,
+                            ),
+                          );
+                        },
                       ),
                     ),
-                  )
-                else
-                  ...notifications.map(
-                    (n) => ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: CircleAvatar(
-                        backgroundColor: AppColors.paleGreen,
-                        child: Icon(n.icon, color: AppColors.green),
-                      ),
-                      title: Text(
-                        n.title,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      subtitle: Text(n.subtitle),
-                    ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         );
@@ -541,65 +616,69 @@ class _HomeScreenState extends State<HomeScreen> {
     final saved =
         context.watch<PantryProvider>().isRecipeSaved(_homeRecipeTitle);
 
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: const BoxDecoration(
-              color: AppColors.paleGreen,
-              shape: BoxShape.circle,
+    return InkWell(
+      onTap: () => widget.onOpenTab(2),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: const BoxDecoration(
+                color: AppColors.paleGreen,
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: const Text('🍳', style: TextStyle(fontSize: 28)),
             ),
-            alignment: Alignment.center,
-            child: const Text('🍳', style: TextStyle(fontSize: 28)),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  _homeRecipeTitle,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textDark,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    _homeRecipeTitle,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textDark,
+                    ),
                   ),
-                ),
-                const Text(
-                  '15 min · 4 ingredients',
-                  style: TextStyle(fontSize: 12, color: AppColors.textMuted),
-                ),
-                const SizedBox(height: 6),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppColors.paleGreen,
-                    borderRadius: BorderRadius.circular(6),
+                  const Text(
+                    '15 min · 4 ingredients',
+                    style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                   ),
-                  child: const Text(
-                    'Rice cooker',
-                    style: TextStyle(fontSize: 11, color: AppColors.green),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.paleGreen,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text(
+                      'Rice cooker',
+                      style: TextStyle(fontSize: 11, color: AppColors.green),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          IconButton(
-            onPressed: _toggleBookmark,
-            tooltip: saved ? 'Remove bookmark' : 'Save recipe',
-            icon: Icon(
-              saved ? Icons.bookmark : Icons.bookmark_border,
-              color: saved ? AppColors.green : AppColors.textMuted,
+            IconButton(
+              onPressed: _toggleBookmark,
+              tooltip: saved ? 'Remove bookmark' : 'Save recipe',
+              icon: Icon(
+                saved ? Icons.bookmark : Icons.bookmark_border,
+                color: saved ? AppColors.green : AppColors.textMuted,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -609,16 +688,24 @@ class _HomeScreenState extends State<HomeScreen> {
 // Models
 // -----------------------------------------------------------------------------
 
+enum _NotificationTarget { pantry, expiryTracker, equipment, recipe }
+
 class _NotificationItem {
   const _NotificationItem({
     required this.icon,
     required this.title,
     required this.subtitle,
+    required this.target,
+    this.iconColor,
+    this.badgeBg,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
+  final _NotificationTarget target;
+  final Color? iconColor;
+  final Color? badgeBg;
 }
 
 class _FoodEntry {

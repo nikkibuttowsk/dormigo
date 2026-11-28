@@ -28,24 +28,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return file.existsSync() ? FileImage(file) : null;
   }
 
-  Future<void> _pickAvatarSheet(AuthProvider auth) async {
-  if (auth.isGuest) {
+  Future<void> _toggleNotifications(AuthProvider auth) async {
+    final saved = await auth.updateProfile(
+      notificationsOn: !auth.notificationsOn,
+    );
+    if (!mounted || saved) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: const Text('Sign in to upload a profile photo.'),
-          action: SnackBarAction(
-            label: 'Sign In',
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const LoginScreen()),
-            ),
+          content: Text(
+            auth.errorMessage ?? 'Failed to update notifications',
           ),
         ),
       );
-    return;
   }
+
+  Future<void> _pickAvatarSheet(AuthProvider auth) async {
+    if (auth.isGuest) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: const Text('Sign in to upload a profile photo.'),
+            action: SnackBarAction(
+              label: 'Sign In',
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+              ),
+            ),
+          ),
+        );
+      return;
+    }
     final picker = ImagePicker();
 
     Future<void> pick(BuildContext sheetCtx, ImageSource source) async {
@@ -667,23 +683,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _menuTile(
                       icon: Icons.notifications_none_rounded,
                       title: 'Notifications',
-                      trailingText: auth.notificationsOn ? 'On' : 'Off',
-                      onTap: () async {
-                        final saved = await auth.updateProfile(
-                          notificationsOn: !auth.notificationsOn,
-                        );
-                        if (!context.mounted || saved) return;
-                        ScaffoldMessenger.of(context)
-                          ..hideCurrentSnackBar()
-                          ..showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                auth.errorMessage ??
-                                    'Failed to update notifications',
-                              ),
-                            ),
-                          );
-                      },
+                      trailingWidget: Switch.adaptive(
+                        value: auth.notificationsOn,
+                        activeTrackColor: AppColors.green,
+                        onChanged: (_) => _toggleNotifications(auth),
+                      ),
+                      onTap: () => _toggleNotifications(auth),
                     ),
                     const Divider(height: 1, indent: 60),
                     _menuTile(
@@ -768,6 +773,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required IconData icon,
     required String title,
     String? trailingText,
+    Widget? trailingWidget,
     required VoidCallback onTap,
   }) {
     return ListTile(
@@ -790,31 +796,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
           color: AppColors.textDark,
         ),
       ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (trailingText != null) ...[
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 130),
-              child: Text(
-                trailingText,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 12.5,
-                  color: AppColors.textMuted,
-                  fontWeight: FontWeight.w600,
+      trailing: trailingWidget ??
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (trailingText != null) ...[
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 130),
+                  child: Text(
+                    trailingText,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      color: AppColors.textMuted,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
+                const SizedBox(width: 6),
+              ],
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: AppColors.textMuted,
               ),
-            ),
-            const SizedBox(width: 6),
-          ],
-          const Icon(
-            Icons.chevron_right_rounded,
-            size: 20,
-            color: AppColors.textMuted,
+            ],
           ),
-        ],
-      ),
     );
   }
 }
