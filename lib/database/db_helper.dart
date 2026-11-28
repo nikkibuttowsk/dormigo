@@ -17,7 +17,6 @@ class DbHelper {
   }
 
   /// Ensures a signed-in (non-anonymous) user and user_profiles row exist.
-  /// Never calls signInAnonymously() so guests stay strictly local.
   Future<String> requireAuthenticatedUserId() async {
     final uid = currentUserId;
     if (uid == null) {
@@ -31,6 +30,12 @@ class DbHelper {
     );
 
     return uid;
+  }
+
+  bool _isMissingImageColumnError(Object error) {
+    final msg = error.toString().toLowerCase();
+    return msg.contains('image_url') &&
+        (msg.contains('column') || msg.contains('schema cache'));
   }
 
   // --- PANTRY CRUD ---
@@ -52,29 +57,57 @@ class DbHelper {
       'user_id': uid,
       'status': 'active',
     };
-    final response = await _client
-        .from('pantry_items')
-        .insert(payload)
-        .select()
-        .single();
-    return JsonMap.from(response);
+    try {
+      final response = await _client
+          .from('pantry_items')
+          .insert(payload)
+          .select()
+          .single();
+      return JsonMap.from(response);
+    } catch (e) {
+      if (payload.containsKey('image_url') && _isMissingImageColumnError(e)) {
+        final fallback = Map<String, dynamic>.from(payload)
+          ..remove('image_url');
+        final response = await _client
+            .from('pantry_items')
+            .insert(fallback)
+            .select()
+            .single();
+        return JsonMap.from(response);
+      }
+      rethrow;
+    }
   }
 
   Future<JsonMap> updatePantryItem(String itemId, JsonMap data) async {
     final uid = await requireAuthenticatedUserId();
-    final response = await _client
-        .from('pantry_items')
-        .update(data)
-        .eq('id', itemId)
-        .eq('user_id', uid)
-        .select()
-        .single();
-    return JsonMap.from(response);
+    try {
+      final response = await _client
+          .from('pantry_items')
+          .update(data)
+          .eq('id', itemId)
+          .eq('user_id', uid)
+          .select()
+          .single();
+      return JsonMap.from(response);
+    } catch (e) {
+      if (data.containsKey('image_url') && _isMissingImageColumnError(e)) {
+        final fallback = Map<String, dynamic>.from(data)..remove('image_url');
+        final response = await _client
+            .from('pantry_items')
+            .update(fallback)
+            .eq('id', itemId)
+            .eq('user_id', uid)
+            .select()
+            .single();
+        return JsonMap.from(response);
+      }
+      rethrow;
+    }
   }
 
   Future<void> updateItemStatus(String itemId, String status) async {
     final uid = await requireAuthenticatedUserId();
-    // status: 'consumed' (saved!) or 'discarded' (wasted)
     await _client
         .from('pantry_items')
         .update({'status': status})
@@ -91,7 +124,7 @@ class DbHelper {
         .eq('user_id', uid);
   }
 
-  // --- EQUIPMENT (Screen 08) ---
+  // --- EQUIPMENT ---
   Future<List<String>> fetchUserEquipment() async {
     final uid = await requireAuthenticatedUserId();
     final response = await _client

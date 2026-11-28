@@ -234,7 +234,7 @@ class _PantryScreenState extends State<PantryScreen> {
                             crossAxisCount: 2,
                             crossAxisSpacing: 12,
                             mainAxisSpacing: 12,
-                            childAspectRatio: 0.80,
+                            childAspectRatio: 0.84,
                           ),
                       itemBuilder: (context, index) {
                         final item = filtered[index];
@@ -268,7 +268,6 @@ class _PantryItemCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = context.watch<PantryProvider>();
     final imgPath = provider.imageForItem(item);
-    final batchNotes = provider.batchNotesForItem(item);
     final hasLocalFile =
         imgPath != null &&
         !imgPath.startsWith('http') &&
@@ -387,19 +386,6 @@ class _PantryItemCard extends StatelessWidget {
               '${item.quantity % 1 == 0 ? item.quantity.toInt() : item.quantity} ${item.unit} · ${item.storageLabel}',
               style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
             ),
-            if (batchNotes != null) ...[
-              const SizedBox(height: 2),
-              Text(
-                batchNotes,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 10.5,
-                  color: AppColors.green,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
             const SizedBox(height: 8),
             Row(
               children: [
@@ -441,7 +427,8 @@ class _PantryItemCard extends StatelessWidget {
 
   String _emojiForItem(PantryItem item) {
     final lower = item.name.toLowerCase();
-    if (lower.contains('egg')) return '🥚';
+    if (lower.contains('eggplant')) return '🍆';
+    if (RegExp(r'\beggs?\b').hasMatch(lower)) return '🥚';
     if (lower.contains('rice')) return '🍚';
     if (lower.contains('tomato')) return '🍅';
     if (lower.contains('carrot')) return '🥕';
@@ -479,10 +466,11 @@ class _PantryItemFormSheetState extends State<_PantryItemFormSheet> {
   late FoodCategory _category;
   late StorageLocation _storage;
   late String _unit;
+  late List<String> _availableUnits;
   DateTime? _expiryDate;
   bool _saving = false;
 
-  static const List<String> _units = ['pcs', 'g', 'kg', 'mL', 'L', 'pack'];
+  static const List<String> _baseUnits = ['pcs', 'g', 'kg', 'mL', 'L', 'pack'];
 
   bool get _isEditing => widget.existing != null;
 
@@ -500,7 +488,18 @@ class _PantryItemFormSheetState extends State<_PantryItemFormSheet> {
     );
     _category = e?.category ?? FoodCategory.vegetables;
     _storage = e?.storageLocation ?? StorageLocation.fridge;
-    _unit = (e != null && _units.contains(e.unit)) ? e.unit : 'pcs';
+
+    final existingUnit = e?.unit.trim();
+    if (existingUnit != null && existingUnit.isNotEmpty) {
+      _unit = existingUnit;
+      _availableUnits = _baseUnits.contains(existingUnit)
+          ? List<String>.from(_baseUnits)
+          : [existingUnit, ..._baseUnits];
+    } else {
+      _unit = 'pcs';
+      _availableUnits = List<String>.from(_baseUnits);
+    }
+
     _expiryDate = e?.expiryDate;
   }
 
@@ -513,11 +512,20 @@ class _PantryItemFormSheetState extends State<_PantryItemFormSheet> {
 
   Future<void> _pickExpiryDate() async {
     final now = DateTime.now();
+    final minDate = now.subtract(const Duration(days: 30));
+    final maxDate = now.add(const Duration(days: 365 * 3));
+    final candidate = _expiryDate ?? now.add(const Duration(days: 5));
+    final initial = candidate.isBefore(minDate)
+        ? minDate
+        : candidate.isAfter(maxDate)
+            ? maxDate
+            : candidate;
+
     final picked = await showDatePicker(
       context: context,
-      initialDate: _expiryDate ?? now.add(const Duration(days: 5)),
-      firstDate: now.subtract(const Duration(days: 30)),
-      lastDate: now.add(const Duration(days: 365 * 3)),
+      initialDate: initial,
+      firstDate: minDate,
+      lastDate: maxDate,
     );
     if (picked != null) {
       setState(() => _expiryDate = picked);
@@ -596,9 +604,6 @@ class _PantryItemFormSheetState extends State<_PantryItemFormSheet> {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    final batchNotes = _isEditing
-        ? context.read<PantryProvider>().batchNotesForItem(widget.existing!)
-        : null;
 
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 4, 20, bottomInset + 24),
@@ -632,28 +637,6 @@ class _PantryItemFormSheetState extends State<_PantryItemFormSheet> {
                     ),
                 ],
               ),
-              if (batchNotes != null) ...[
-                const SizedBox(height: 6),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.paleGreen,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    'Combined batches: $batchNotes',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.green,
-                    ),
-                  ),
-                ),
-              ],
               const SizedBox(height: 14),
 
               // Item Name
@@ -709,7 +692,7 @@ class _PantryItemFormSheetState extends State<_PantryItemFormSheet> {
                           borderRadius: BorderRadius.circular(14),
                         ),
                       ),
-                      items: _units
+                      items: _availableUnits
                           .map(
                             (u) => DropdownMenuItem(value: u, child: Text(u)),
                           )

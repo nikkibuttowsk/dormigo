@@ -14,7 +14,6 @@ class PantryItem {
   final StorageLocation storageLocation;
   final DateTime addedAt;
   final String? imagePath;
-  final String? batchNotes;
 
   PantryItem({
     required this.id,
@@ -26,7 +25,6 @@ class PantryItem {
     this.storageLocation = StorageLocation.shelf,
     DateTime? addedAt,
     this.imagePath,
-    this.batchNotes,
   }) : addedAt = addedAt ?? DateTime.now();
 
   /// Calculates remaining days until expiration (negative if expired)
@@ -83,7 +81,6 @@ class PantryItem {
     bool clearExpiry = false,
     StorageLocation? storageLocation,
     String? imagePath,
-    String? batchNotes,
   }) {
     return PantryItem(
       id: id,
@@ -95,7 +92,6 @@ class PantryItem {
       storageLocation: storageLocation ?? this.storageLocation,
       addedAt: addedAt,
       imagePath: imagePath ?? this.imagePath,
-      batchNotes: batchNotes ?? this.batchNotes,
     );
   }
 
